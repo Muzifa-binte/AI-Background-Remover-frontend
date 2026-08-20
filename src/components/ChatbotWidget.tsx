@@ -4,6 +4,7 @@ import type { Message, ChatResponse, ImageAnalysis, CaptionStyle } from '../type
 import { chatService } from '../services/chatService'
 import { imageService } from '../services/imageService'
 import { useActiveImage } from '../contexts/ActiveImageContext'
+import { useLocation } from 'react-router-dom'
 
 // ─── Mode Types ───────────────────────────────────────────────────────────────
 
@@ -25,7 +26,7 @@ const TypingDots = () => (
 )
 
 const formatMessage = (text: string, isUser: boolean) => {
-  if (isUser) return <span className="text-white font-medium">{text}</span>
+  if (isUser) return <span className="text-white font-medium text-[12px]">{text}</span>
 
   let html = text
     .replace(/&/g, '&amp;')
@@ -57,7 +58,7 @@ const formatMessage = (text: string, isUser: boolean) => {
     ALLOWED_ATTR: ['class'],
   })
 
-  return <div dangerouslySetInnerHTML={{ __html: safeHtml }} className="space-y-1 text-secondary leading-relaxed" />
+  return <div dangerouslySetInnerHTML={{ __html: safeHtml }} className="space-y-1 text-secondary text-[12px] leading-relaxed" />
 }
 
 function fmtSize(bytes: number) {
@@ -183,7 +184,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [unread, setUnread] = useState(0)
 
   // Context active image context
-  const { activeFile: contextFile, activePreviewUrl: contextPreviewUrl } = useActiveImage()
+  const { activeFile: contextFile, activePreviewUrl: contextPreviewUrl, setActiveImage } = useActiveImage()
 
   // Internal image state (overridden by context image if provided)
   const [internalFile, setInternalFile] = useState<File | null>(null)
@@ -194,6 +195,46 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
 
   // ── Chat state ────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([])
+  const location = useLocation()
+  const currentPath = location.pathname
+
+  // Page-specific quick suggestions (chips)
+  const getSuggestionsForPath = (path: string): string[] => {
+    switch (path) {
+      case '/enhance':
+        return ['How to enhance detail?', 'Color correction tips', 'Is the lighting good?']
+      case '/replace-bg':
+        return ['Backdrop ideas', 'Suggest matching color', 'Lighting matching help']
+      case '/smart-crop':
+        return ['Rule of thirds advice', 'Best aspect ratio?', 'Is subject centered?']
+      case '/batch':
+        return ['Batch workflows', 'Standardize styling', 'Optimizing format']
+      case '/history':
+        return ['Analyzing my history', 'Clear history help', 'Download options']
+      case '/':
+      default:
+        return ['Suggest a background', 'How should I edit this?', 'Write a caption']
+    }
+  }
+
+  // Page-specific prompt helper
+  const getPromptContextForPath = (path: string): string => {
+    switch (path) {
+      case '/enhance':
+        return 'System context: The user is currently on the Image Enhance page. Focus your advice on image quality, resolution, contrast, detail recovery, color balancing, and sharpening adjustments.'
+      case '/replace-bg':
+        return 'System context: The user is currently on the Replace Background page. Focus your advice on background composition, lighting/shadow matching, background color choices, and aesthetic themes.'
+      case '/smart-crop':
+        return 'System context: The user is currently on the Smart Crop page. Focus your advice on image composition, rule of thirds, framing, grid alignment, aspect ratios, and centering.'
+      case '/batch':
+        return 'System context: The user is currently on the Batch Processing page. Focus your advice on managing high volumes of images, processing queues, scaling, file organization, and bulk standardizations.'
+      case '/history':
+        return 'System context: The user is currently on the History page. Focus your advice on organizing past runs, downloading transparent PNG outputs, and managing previous project history logs.'
+      case '/':
+      default:
+        return 'System context: The user is currently on the Background Remover home page. Focus your advice on transparency, background separation, edge smoothness, and basic export options.'
+    }
+  }
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState<string | null>(null)
@@ -244,6 +285,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const handleRemoveImage = () => {
     setInternalFile(null)
     setInternalPreviewUrl(null)
+    setActiveImage(null, null)
     setAnalysis(null); setSuggestions([]); setCaptions([]); setSelectedCaption(null)
   }
 
@@ -256,7 +298,9 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
     setChatInput('')
     setChatLoading(true); setChatError(null)
     try {
-      const res: ChatResponse = await chatService.sendMessage(text, activeFile)
+      const routeContext = getPromptContextForPath(currentPath)
+      const combinedText = `${routeContext}\n\nUser Message: ${text}`
+      const res: ChatResponse = await chatService.sendMessage(combinedText, activeFile)
       const aiMsg: Message = { id: Date.now() + '-a', role: 'assistant', content: res.reply, thinking: res.thinking, timestamp: Date.now() }
       setMessages(prev => [...prev, aiMsg])
       if (!isOpen) setUnread(n => n + 1)
@@ -364,7 +408,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
                   {activeFile ? 'I can see your image. Ask anything about it!' : 'Upload an image above or ask a general question.'}
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
-                  {['Suggest a background', 'How should I edit this?', 'Write a caption'].map(chip => (
+                  {getSuggestionsForPath(currentPath).map(chip => (
                     <button key={chip} onClick={() => { setChatInput(chip); chatInputRef.current?.focus() }}
                       className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-magenta/10 border border-magenta/20 text-magenta hover:bg-magenta/20 transition-all">
                       {chip}
@@ -417,7 +461,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="p-3 space-y-2 shrink-0">
-            <MiniUploader file={internalFile} previewUrl={internalPreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
+            <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
             <button onClick={runAnalysis} disabled={!activeFile || analysisLoading}
               className="w-full py-2 rounded-xl bg-teal hover:bg-teal/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
               {analysisLoading
@@ -468,7 +512,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="p-3 space-y-2 shrink-0">
-            <MiniUploader file={internalFile} previewUrl={internalPreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
+            <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
             <button onClick={runSuggestions} disabled={!activeFile || suggestionsLoading}
               className="w-full py-2 rounded-xl bg-magenta hover:bg-magenta/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
               {suggestionsLoading
@@ -511,7 +555,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="p-3 space-y-2 shrink-0">
-            <MiniUploader file={internalFile} previewUrl={internalPreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
+            <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
             {/* Style selector */}
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
               {stylesList.map(s => (
