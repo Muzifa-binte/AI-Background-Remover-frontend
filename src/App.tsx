@@ -20,6 +20,7 @@ import BatchPage          from './pages/BatchPage'
 import HistoryPage        from './pages/HistoryPage'
 import SettingsPage       from './pages/SettingsPage'
 import NotFoundPage       from './pages/NotFoundPage'
+import ShadowPage         from './pages/ShadowPage'
 
 function ChatbotWidgetWrapper() {
   const { user } = useAuth()
@@ -36,13 +37,13 @@ export default function App() {
             <div className="min-h-screen bg-page flex flex-col">
               <Navbar />
               <Routes>
-                {/* ── Public routes ────────────────────────────────────────────────── */}
-                <Route path="/login"            element={<LoginPage />} />
-                <Route path="/register"          element={<RegisterPage />} />
-                <Route path="/forgot-password"   element={<ForgotPasswordPage />} />
-                <Route path="/reset-password"    element={<ResetPasswordPage />} />
+                {/* Public routes */}
+                <Route path="/login"           element={<LoginPage />} />
+                <Route path="/register"        element={<RegisterPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
-                {/* ── Protected routes ───────────────────────────────────────── */}
+                {/* Protected routes */}
                 <Route path="/" element={
                   <ProtectedRoute><HomePage /></ProtectedRoute>
                 } />
@@ -61,6 +62,9 @@ export default function App() {
                 <Route path="/batch" element={
                   <ProtectedRoute><BatchPage /></ProtectedRoute>
                 } />
+                <Route path="/shadow" element={
+                  <ProtectedRoute><ShadowPage /></ProtectedRoute>
+                } />
                 <Route path="/history" element={
                   <ProtectedRoute><HistoryPage /></ProtectedRoute>
                 } />
@@ -68,7 +72,7 @@ export default function App() {
                   <ProtectedRoute><SettingsPage /></ProtectedRoute>
                 } />
 
-                {/* ── Catch-all ──────────────────────────────────────────────── */}
+                {/* Catch-all */}
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
               <ChatbotWidgetWrapper />
