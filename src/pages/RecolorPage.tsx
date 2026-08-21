@@ -13,6 +13,7 @@ import { useRef, useCallback } from 'react'
 import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import RecolorCanvas, { type RecolorCanvasHandle } from '../components/RecolorCanvas'
+import CanvasErrorBoundary from '../components/CanvasErrorBoundary'
 import { useRecolor, COLOR_PRESETS } from '../hooks/useRecolor'
 
 // ── Small sub-components ───────────────────────────────────────────────────
@@ -280,7 +281,8 @@ export default function RecolorPage() {
                   alt="Recoloured result — full view"
                   className="w-full object-contain max-h-[480px]"
                 />
-              </div>
+                  </CanvasErrorBoundary>
+                </div>
 
               {/* Actions bar */}
               <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">
@@ -381,7 +383,8 @@ export default function RecolorPage() {
                   aria-label="Hex colour value"
                   placeholder="#e83c6d"
                 />
-              </div>
+                  </CanvasErrorBoundary>
+                </div>
             </div>
 
             {/* Live preview swatch */}
