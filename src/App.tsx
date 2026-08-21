@@ -14,6 +14,7 @@ import ResetPasswordPage  from './pages/ResetPasswordPage'
 import HomePage           from './pages/HomePage'
 import EnhancePage        from './pages/EnhancePage'
 import ReplaceBgPage      from './pages/ReplaceBgPage'
+import RecolorPage        from './pages/RecolorPage'
 import SmartCropPage      from './pages/SmartCropPage'
 import BatchPage          from './pages/BatchPage'
 import HistoryPage        from './pages/HistoryPage'
@@ -50,6 +51,9 @@ export default function App() {
                 } />
                 <Route path="/replace-bg" element={
                   <ProtectedRoute><ReplaceBgPage /></ProtectedRoute>
+                } />
+                <Route path="/recolor" element={
+                  <ProtectedRoute><RecolorPage /></ProtectedRoute>
                 } />
                 <Route path="/smart-crop" element={
                   <ProtectedRoute><SmartCropPage /></ProtectedRoute>
