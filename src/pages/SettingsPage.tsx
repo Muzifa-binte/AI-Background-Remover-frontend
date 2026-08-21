@@ -1,13 +1,12 @@
-import { useState, type FormEvent } from 'react'
-import axios from 'axios'
-import { useNavigate } from 'react-router-dom'
+import { useState, FormEvent, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
 
-// ── Tab type ───────────────────────────────────────────────────────────────
-type Tab = 'profile' | 'security' | 'danger'
+type Tab = 'dashboard' | 'profile' | 'security' | 'danger'
 
-// ── Eye icon toggle helper ─────────────────────────────────────────────────
+
 function EyeIcon({ visible }: { visible: boolean }) {
   return visible ? (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -22,7 +21,6 @@ function EyeIcon({ visible }: { visible: boolean }) {
   )
 }
 
-// ── Password input with show/hide toggle ───────────────────────────────────
 function PasswordInput({
   id, label, value, onChange, disabled, autoComplete, placeholder,
 }: {
@@ -39,10 +37,10 @@ function PasswordInput({
           id={id}
           type={show ? 'text' : 'password'}
           autoComplete={autoComplete}
+          placeholder={placeholder || '••••••••'}
           value={value}
           onChange={e => onChange(e.target.value)}
           disabled={disabled}
-          placeholder={placeholder ?? '••••••••'}
           className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-border bg-surface-raised
             text-sm text-primary placeholder:text-muted
             focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta/30
@@ -50,9 +48,10 @@ function PasswordInput({
         />
         <button
           type="button"
-          onClick={() => setShow(v => !v)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-secondary"
-          aria-label={show ? 'Hide password' : 'Show password'}
+          onClick={() => setShow(!show)}
+          disabled={disabled}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors disabled:opacity-50"
+          title={show ? "Hide password" : "Show password"}
         >
           <EyeIcon visible={show} />
         </button>
@@ -61,70 +60,147 @@ function PasswordInput({
   )
 }
 
-// ── Field input helper ─────────────────────────────────────────────────────
-function Field({
-  id, label, type = 'text', value, onChange, disabled, placeholder, autoComplete,
-}: {
-  id: string; label: string; type?: string; value: string
-  onChange: (v: string) => void; disabled: boolean
-  placeholder?: string; autoComplete?: string
-}) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-secondary">{label}</label>
-      <input
-        id={id}
-        type={type}
-        autoComplete={autoComplete}
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        disabled={disabled}
-        placeholder={placeholder}
-        className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised
-          text-sm text-primary placeholder:text-muted
-          focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta/30
-          disabled:opacity-50"
-      />
-    </div>
-  )
-}
-
-// ── Spinner ────────────────────────────────────────────────────────────────
 function Spinner() {
   return (
-    <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg"
-      fill="none" viewBox="0 0 24 24" aria-hidden="true">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
     </svg>
   )
 }
 
-// ── Profile Tab ────────────────────────────────────────────────────────────
+// ---------------- Dashboard Tab ----------------
+function DashboardTab() {
+  const { user } = useAuth()
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await axios.get('/api/auth/stats')
+        setStats(res.data)
+      } catch (err) {
+        console.error("Failed to load stats", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStats()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-10">
+        <Spinner />
+      </div>
+    )
+  }
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const createdDate = user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'
+  const quotaPercent = stats?.quota?.limit > 0 ? (stats.quota.used / stats.quota.limit) * 100 : 0
+
+  return (
+    <div className="flex flex-col gap-8 animate-fade-up">
+      {/* Account Info */}
+      <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface-raised">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-magenta to-purple flex items-center justify-center text-white text-2xl font-bold shadow-inner">
+          {user?.name.charAt(0).toUpperCase()}
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-primary">{user?.name}</h2>
+          <p className="text-sm text-secondary">{user?.email}</p>
+          <p className="text-xs text-muted mt-1">Member since {createdDate}</p>
+        </div>
+      </div>
+
+      {/* Quota Progress */}
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between items-end">
+          <h3 className="text-sm font-semibold text-primary">Daily Quota</h3>
+          <span className="text-xs text-muted font-medium">
+            {stats?.quota?.used} / {stats?.quota?.limit} images used
+          </span>
+        </div>
+        <div className="h-2.5 w-full bg-surface-raised rounded-full overflow-hidden border border-border">
+          <div 
+            className="h-full bg-gradient-to-r from-teal to-magenta transition-all duration-500 ease-out"
+            style={{ width: `${Math.min(quotaPercent, 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        
+        {/* Total Images */}
+        <div className="p-4 rounded-xl border border-border bg-surface-raised flex flex-col gap-1">
+          <span className="text-xs text-muted font-medium uppercase tracking-wider">Total Images</span>
+          <span className="text-2xl font-bold text-primary">{stats?.total_images || 0}</span>
+        </div>
+
+        {/* Storage */}
+        <div className="p-4 rounded-xl border border-border bg-surface-raised flex flex-col gap-1">
+          <span className="text-xs text-muted font-medium uppercase tracking-wider">Storage Used</span>
+          <span className="text-2xl font-bold text-primary">{formatBytes(stats?.storage_bytes || 0)}</span>
+        </div>
+
+        {/* Breakdown */}
+        <div className="col-span-2 sm:col-span-3 p-4 rounded-xl border border-border bg-surface-raised">
+          <h4 className="text-sm font-semibold text-primary mb-3">Usage Breakdown</h4>
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
+            <div className="flex flex-col">
+              <span className="text-xs text-muted">Remove BG</span>
+              <span className="text-lg font-bold text-primary">{stats?.operations?.remove_bg || 0}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted">Enhance</span>
+              <span className="text-lg font-bold text-primary">{stats?.operations?.enhance || 0}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted">Replace BG</span>
+              <span className="text-lg font-bold text-primary">{stats?.operations?.replace_bg || 0}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted">Smart Crop</span>
+              <span className="text-lg font-bold text-primary">{stats?.operations?.smart_crop || 0}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-muted">Recolor</span>
+              <span className="text-lg font-bold text-primary">{stats?.operations?.recolor || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------- Profile Tab ----------------
 function ProfileTab() {
-  const { user, updateProfile } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { showToast } = useToast()
+  
+  const [name, setName] = useState(user?.name || '')
+  const [busy, setBusy] = useState(false)
 
-  const [name,  setName]  = useState(user?.name  ?? '')
-  const [email, setEmail] = useState(user?.email ?? '')
-  const [busy,  setBusy]  = useState(false)
-
-  const isDirty = name !== user?.name || email !== user?.email
-
-  async function handleSubmit(e: FormEvent) {
+  async function handleUpdate(e: FormEvent) {
     e.preventDefault()
-    if (!isDirty) return
+    if (!name.trim() || name === user?.name) return
+
     setBusy(true)
     try {
-      const payload: Record<string, string> = {}
-      if (name  !== user?.name)  payload.name  = name.trim()
-      if (email !== user?.email) payload.email = email.trim()
-
-      const res = await axios.patch<{ user_id: string; name: string; email: string; created_at: string }>(
-        '/api/auth/profile', payload,
-      )
-      updateProfile({ name: res.data.name, email: res.data.email })
-      showToast('Profile updated successfully.', 'success')
+      await axios.patch('/api/auth/profile', { name: name.trim() })
+      await refreshUser()
+      showToast('Profile updated successfully!', 'success')
     } catch (err) {
       const msg = axios.isAxiosError(err) && err.response?.data?.detail
         ? String(err.response.data.detail)
@@ -135,98 +211,87 @@ function ProfileTab() {
     }
   }
 
-  const initial = (user?.name ?? '?').charAt(0).toUpperCase()
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-
-      {/* Avatar preview */}
-      <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-full bg-magenta text-white text-2xl font-bold
-          flex items-center justify-center shadow-glow-sm shrink-0 select-none">
-          {initial}
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-primary">{user?.name}</p>
-          <p className="text-xs text-muted mt-0.5">{user?.email}</p>
-          <p className="text-xs text-muted mt-1">
-            Member since {user?.created_at
-              ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-              : '—'}
-          </p>
-        </div>
-      </div>
-
-      <hr className="border-border" />
-
-      {/* Fields */}
-      <div className="flex flex-col gap-4">
-        <Field
+    <form onSubmit={handleUpdate} className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="settings-name" className="text-sm font-medium text-secondary">
+          Display Name
+        </label>
+        <input
           id="settings-name"
-          label="Display Name"
+          type="text"
           value={name}
-          onChange={setName}
+          onChange={e => setName(e.target.value)}
           disabled={busy}
-          placeholder="Your name"
-          autoComplete="name"
-        />
-        <Field
-          id="settings-email"
-          label="Email Address"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          disabled={busy}
-          placeholder="you@example.com"
-          autoComplete="email"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised
+            text-sm text-primary placeholder:text-muted
+            focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta/30
+            disabled:opacity-50"
+          placeholder="Enter your name"
+          maxLength={80}
         />
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="settings-email" className="text-sm font-medium text-secondary">
+          Email Address
+        </label>
+        <input
+          id="settings-email"
+          type="email"
+          value={user?.email || ''}
+          disabled
+          className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised opacity-60 cursor-not-allowed
+            text-sm text-primary"
+          title="Email cannot be changed"
+        />
+        <p className="text-xs text-muted mt-1">Your email address cannot be changed.</p>
+      </div>
+
+      <div className="flex justify-end pt-2">
         <button
-          id="settings-save-profile"
           type="submit"
-          disabled={busy || !isDirty || !name.trim() || !email.trim()}
+          disabled={busy || !name.trim() || name === user?.name}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg
-            bg-magenta hover:bg-magenta-hover text-white font-semibold text-sm
+            bg-primary hover:bg-primary-hover text-surface font-semibold text-sm
             transition-all active:scale-95
             disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           {busy && <Spinner />}
-          {busy ? 'Saving…' : 'Save changes'}
+          {busy ? 'Saving...' : 'Save changes'}
         </button>
       </div>
     </form>
   )
 }
 
-// ── Security Tab ───────────────────────────────────────────────────────────
+// ---------------- Security Tab ----------------
 function SecurityTab() {
   const { showToast } = useToast()
+  
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword,     setNewPassword]     = useState('')
+  const [busy,            setBusy]            = useState(false)
 
-  const [current, setCurrent]   = useState('')
-  const [newPwd,   setNewPwd]   = useState('')
-  const [confirm,  setConfirm]  = useState('')
-  const [busy,     setBusy]     = useState(false)
+  const canSubmit = currentPassword && newPassword.length >= 8 && !busy
 
-  const mismatch = confirm.length > 0 && newPwd !== confirm
-  const canSubmit = current && newPwd.length >= 8 && newPwd === confirm && !busy
-
-  async function handleSubmit(e: FormEvent) {
+  async function handleUpdate(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
+
     setBusy(true)
     try {
       await axios.patch('/api/auth/password', {
-        current_password: current,
-        new_password:     newPwd,
+        current_password: currentPassword,
+        new_password:     newPassword,
       })
-      setCurrent(''); setNewPwd(''); setConfirm('')
-      showToast('Password changed. Please sign in again with your new password.', 'success')
+      showToast('Password updated successfully!', 'success')
+      setCurrentPassword('')
+      setNewPassword('')
     } catch (err) {
       const msg = axios.isAxiosError(err) && err.response?.data?.detail
         ? String(err.response.data.detail)
-        : 'Failed to change password.'
+        : 'Failed to update password.'
       showToast(msg, 'error')
     } finally {
       setBusy(false)
@@ -234,89 +299,47 @@ function SecurityTab() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleUpdate} className="flex flex-col gap-5">
+      <PasswordInput
+        id="settings-current-password"
+        label="Current Password"
+        value={currentPassword}
+        onChange={setCurrentPassword}
+        disabled={busy}
+        autoComplete="current-password"
+      />
+      
+      <div className="border-t border-border/50 my-1" />
 
-      {/* Info banner */}
-      <div className="flex gap-3 px-4 py-3 rounded-lg bg-surface-raised border border-border text-sm text-secondary">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-          className="w-5 h-5 shrink-0 text-magenta mt-0.5" aria-hidden="true">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
-        </svg>
-        <span>After changing your password you'll need to sign in again on all devices.</span>
-      </div>
+      <PasswordInput
+        id="settings-new-password"
+        label="New Password"
+        value={newPassword}
+        onChange={setNewPassword}
+        disabled={busy}
+        autoComplete="new-password"
+      />
+      
+      <p className="text-xs text-muted -mt-2">Password must be at least 8 characters long.</p>
 
-      <div className="flex flex-col gap-4">
-        <PasswordInput
-          id="settings-current-pwd"
-          label="Current Password"
-          value={current}
-          onChange={setCurrent}
-          disabled={busy}
-          autoComplete="current-password"
-        />
-        <PasswordInput
-          id="settings-new-pwd"
-          label="New Password"
-          value={newPwd}
-          onChange={setNewPwd}
-          disabled={busy}
-          autoComplete="new-password"
-          placeholder="Min. 8 characters"
-        />
-
-        {/* Strength indicator */}
-        {newPwd.length > 0 && (
-          <div className="flex gap-1.5 items-center">
-            {[4, 7, 11].map((threshold, i) => (
-              <div
-                key={i}
-                className={`h-1 flex-1 rounded-full transition-all ${
-                  newPwd.length > threshold
-                    ? i === 0 ? 'bg-danger' : i === 1 ? 'bg-amber-400' : 'bg-emerald-500'
-                    : 'bg-border'
-                }`}
-              />
-            ))}
-            <span className="text-xs text-muted ml-1">
-              {newPwd.length <= 4 ? 'Weak' : newPwd.length <= 7 ? 'Fair' : newPwd.length <= 11 ? 'Good' : 'Strong'}
-            </span>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-1.5">
-          <PasswordInput
-            id="settings-confirm-pwd"
-            label="Confirm New Password"
-            value={confirm}
-            onChange={setConfirm}
-            disabled={busy}
-            autoComplete="new-password"
-          />
-          {mismatch && (
-            <p className="text-xs text-danger">Passwords do not match.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="flex justify-end">
+      <div className="flex justify-end pt-2">
         <button
-          id="settings-change-password"
           type="submit"
           disabled={!canSubmit}
           className="flex items-center gap-2 px-5 py-2.5 rounded-lg
-            bg-magenta hover:bg-magenta-hover text-white font-semibold text-sm
+            bg-primary hover:bg-primary-hover text-surface font-semibold text-sm
             transition-all active:scale-95
             disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           {busy && <Spinner />}
-          {busy ? 'Updating…' : 'Update password'}
+          {busy ? 'Updating...' : 'Update password'}
         </button>
       </div>
     </form>
   )
 }
 
-// ── Danger Zone Tab ────────────────────────────────────────────────────────
+// ---------------- Danger Zone Tab ----------------
 function DangerTab() {
   const { logout } = useAuth()
   const { showToast } = useToast()
@@ -326,7 +349,6 @@ function DangerTab() {
   const [confirm,  setConfirm]  = useState('')
   const [busy,     setBusy]     = useState(false)
 
-  // User must type CONFIRM exactly to enable the button
   const CONFIRM_PHRASE = 'DELETE'
   const canDelete = password.length > 0 && confirm === CONFIRM_PHRASE && !busy
 
@@ -350,8 +372,6 @@ function DangerTab() {
 
   return (
     <form onSubmit={handleDelete} className="flex flex-col gap-6">
-
-      {/* Warning banner */}
       <div className="flex gap-3 px-4 py-3 rounded-lg bg-danger/5 border border-danger/20 text-sm text-danger">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
           className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true">
@@ -405,18 +425,27 @@ function DangerTab() {
             disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
         >
           {busy && <Spinner />}
-          {busy ? 'Deleting…' : 'Permanently delete account'}
+          {busy ? 'Deleting...' : 'Permanently delete account'}
         </button>
       </div>
     </form>
   )
 }
 
-// ── Main Settings Page ─────────────────────────────────────────────────────
+// ---------------- Main Settings Page ----------------
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('profile')
+  const [tab, setTab] = useState<Tab>('dashboard')
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+          <path d="M2 4a2 2 0 012-2h3a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm11-2a2 2 0 00-2 2v10a2 2 0 002 2h3a2 2 0 002-2V4a2 2 0 00-2-2h-3zm-9 10a2 2 0 00-2 2v2a2 2 0 002 2h3a2 2 0 002-2v-2a2 2 0 00-2-2H4z" />
+        </svg>
+      )
+    },
     {
       id: 'profile',
       label: 'Profile',
@@ -449,8 +478,6 @@ export default function SettingsPage() {
   return (
     <main className="flex-1 py-10 px-4">
       <div className="max-w-2xl mx-auto flex flex-col gap-8">
-
-        {/* Page header */}
         <div>
           <h1 className="text-3xl font-display font-bold text-primary tracking-tight">
             Account Settings
@@ -460,11 +487,8 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Tab bar + content card */}
         <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
-
-          {/* Tabs */}
-          <div className="flex border-b border-border">
+          <div className="flex border-b border-border overflow-x-auto custom-scrollbar">
             {tabs.map(t => (
               <button
                 key={t.id}
@@ -486,14 +510,13 @@ export default function SettingsPage() {
             ))}
           </div>
 
-          {/* Tab content */}
           <div className="p-6 sm:p-8">
-            {tab === 'profile'  && <ProfileTab />}
-            {tab === 'security' && <SecurityTab />}
-            {tab === 'danger'   && <DangerTab />}
+            {tab === 'dashboard' && <DashboardTab />}
+            {tab === 'profile'   && <ProfileTab />}
+            {tab === 'security'  && <SecurityTab />}
+            {tab === 'danger'    && <DangerTab />}
           </div>
         </div>
-
       </div>
     </main>
   )
