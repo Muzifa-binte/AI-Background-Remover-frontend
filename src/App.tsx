@@ -18,6 +18,7 @@ import HistoryPage   from './pages/HistoryPage'
 import SettingsPage  from './pages/SettingsPage'
 import NotFoundPage  from './pages/NotFoundPage'
 import RecolorPage   from './pages/RecolorPage'
+import ShadowPage    from './pages/ShadowPage'
 
 function ChatbotWidgetWrapper() {
   const { user } = useAuth()
@@ -56,6 +57,9 @@ export default function App() {
                 } />
                 <Route path="/recolor" element={
                   <ProtectedRoute><RecolorPage /></ProtectedRoute>
+                } />
+                <Route path="/shadow" element={
+                  <ProtectedRoute><ShadowPage /></ProtectedRoute>
                 } />
                 <Route path="/history" element={
                   <ProtectedRoute><HistoryPage /></ProtectedRoute>
