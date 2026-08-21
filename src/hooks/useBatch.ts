@@ -6,6 +6,7 @@ import type { Quality } from './useUpload'
 
 export type JobStatus  = 'idle' | 'uploading' | 'pending' | 'running' | 'done' | 'error'
 export type FileStatus = 'queued' | 'processing' | 'done' | 'error'
+export type ZipFormat  = 'png' | 'jpeg' | 'webp'
 
 export interface BatchFile {
   original_name:   string
@@ -40,6 +41,8 @@ export function useBatch() {
   const [job,         setJob]         = useState<BatchJob | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [quality,     setQuality]     = useState<Quality>('fast')
+  const [isZipping,   setIsZipping]   = useState(false)
+  const [zipError,    setZipError]    = useState<string | null>(null)
 
   const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -236,14 +239,54 @@ export function useBatch() {
   }, [quality, startTracking, cleanupSubscriptions])
 
   // ── Download ZIP ───────────────────────────────────────────────────────
-  const downloadZip = useCallback(() => {
+  const downloadZip = useCallback(async (
+    format:  ZipFormat = 'png',
+    quality: number    = 90,
+  ) => {
     if (!jobIdRef.current) return
-    const a = document.createElement('a')
-    a.href = `/api/batch/${jobIdRef.current}/download`
-    a.download = 'batch_results.zip'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    setIsZipping(true)
+    setZipError(null)
+
+    try {
+      const res = await axios.get(
+        `/api/batch/${jobIdRef.current}/download-zip`,
+        {
+          params:       { format, quality },
+          responseType: 'blob',
+        },
+      )
+
+      // Determine filename from Content-Disposition or fall back to a default
+      const cd          = res.headers['content-disposition'] ?? ''
+      const nameMatch   = cd.match(/filename="?([^"]+)"?/)
+      const zipFilename = nameMatch?.[1] ?? `batch_results.zip`
+
+      // Create a temporary object URL and trigger browser save dialog
+      const url = URL.createObjectURL(res.data as Blob)
+      const a   = document.createElement('a')
+      a.href     = url
+      a.download = zipFilename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      // Small delay before revoking so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      const msg =
+        axios.isAxiosError(err) && err.response?.data
+          ? (() => {
+              // Response is a Blob — try to parse JSON error detail from it
+              try {
+                return JSON.parse(err.response!.data as string)?.detail ?? 'Download failed.'
+              } catch {
+                return 'Download failed. Please try again.'
+              }
+            })()
+          : 'Download failed. Please try again.'
+      setZipError(msg)
+    } finally {
+      setIsZipping(false)
+    }
   }, [])
 
   // ── Reset ──────────────────────────────────────────────────────────────
@@ -252,6 +295,7 @@ export function useBatch() {
     setJobStatus('idle')
     setJob(null)
     setUploadError(null)
+    setZipError(null)
     jobIdRef.current = null
   }, [cleanupSubscriptions])
 
@@ -269,6 +313,8 @@ export function useBatch() {
     setQuality,
     startBatch,
     downloadZip,
+    isZipping,
+    zipError,
     reset,
   }
 }
