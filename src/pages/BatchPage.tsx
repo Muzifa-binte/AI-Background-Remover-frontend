@@ -1,8 +1,10 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useDropzone, FileRejection } from 'react-dropzone'
 import BatchFileList from '../components/BatchFileList'
 import QualityToggle from '../components/QualityToggle'
+import ZipExportModal from '../components/ZipExportModal'
 import { useBatch } from '../hooks/useBatch'
+import type { ZipFormat } from '../hooks/useBatch'
 
 const MAX_FILES   = 20
 const MAX_SIZE_MB = 10
@@ -133,8 +135,15 @@ function ProgressBar({ pct, label }: { pct: number; label: string }) {
 export default function BatchPage() {
   const {
     jobStatus, job, uploadError,
-    progressPct, quality, setQuality, startBatch, downloadZip, reset,
+    progressPct, quality, setQuality, startBatch, downloadZip,
+    isZipping, zipError, reset,
   } = useBatch()
+
+  const [zipModalOpen, setZipModalOpen] = useState(false)
+
+  const handleDownloadZip = useCallback((format: ZipFormat, q: number) => {
+    downloadZip(format, q)
+  }, [downloadZip])
 
   const isIdle      = jobStatus === 'idle'
   const isUploading = jobStatus === 'uploading'
@@ -248,9 +257,12 @@ export default function BatchPage() {
             {/* Action buttons */}
             {isDone && (
               <div className="flex items-center gap-3 pt-1 flex-wrap">
+
+                {/* ZIP download — opens format/quality modal */}
                 <button
-                  onClick={downloadZip}
-                  disabled={job.completed === 0}
+                  id="batch-download-zip-button"
+                  onClick={() => setZipModalOpen(true)}
+                  disabled={job.completed === 0 || isZipping}
                   className={`
                     inline-flex items-center gap-2 px-5 py-2.5 rounded-md font-medium text-sm
                     transition-all duration-200 active:scale-95
@@ -258,19 +270,45 @@ export default function BatchPage() {
                       ? 'bg-teal hover:bg-teal-hover text-white shadow-sm hover:shadow-md'
                       : 'bg-surface-raised text-muted border border-border cursor-not-allowed'
                     }
+                    disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
                   `}
                   aria-label="Download all results as ZIP"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-                    className="w-4 h-4" aria-hidden="true">
-                    <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-                    <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-                  </svg>
-                  Download All ({job.completed}) as ZIP
+                  {isZipping ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg"
+                        fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      Building ZIP…
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                        className="w-4 h-4" aria-hidden="true">
+                        <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+                        <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+                      </svg>
+                      Download All ({job.completed}) as ZIP
+                    </>
+                  )}
                 </button>
-                <button onClick={reset} className="btn-ghost text-sm">
+
+                <button onClick={reset} disabled={isZipping} className="btn-ghost text-sm disabled:opacity-40">
                   Process more
                 </button>
+              </div>
+            )}
+
+            {/* ZIP error inline banner */}
+            {zipError && (
+              <div role="alert" className="mt-2 flex items-center gap-2 text-sm text-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
+                  className="w-4 h-4 shrink-0" aria-hidden="true">
+                  <path fillRule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm-.75 4.75a.75.75 0 011.5 0v3a.75.75 0 01-1.5 0v-3zm.75 6.5a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                </svg>
+                {zipError}
               </div>
             )}
           </div>
@@ -278,6 +316,18 @@ export default function BatchPage() {
           {/* Per-file list */}
           <BatchFileList files={job.files} />
         </div>
+      )}
+
+      {/* ── ZIP Export Modal ───────────────────────────────────────────── */}
+      {job && (
+        <ZipExportModal
+          isOpen={zipModalOpen}
+          onClose={() => setZipModalOpen(false)}
+          fileCount={job.completed}
+          isZipping={isZipping}
+          zipError={zipError}
+          onDownload={handleDownloadZip}
+        />
       )}
     </main>
   )

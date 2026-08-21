@@ -6,6 +6,7 @@ import type { Quality } from './useUpload'
 
 export type JobStatus  = 'idle' | 'uploading' | 'pending' | 'running' | 'done' | 'error'
 export type FileStatus = 'queued' | 'processing' | 'done' | 'error'
+export type ZipFormat  = 'png' | 'jpeg' | 'webp'
 
 export interface BatchFile {
   original_name:   string
@@ -40,31 +41,39 @@ export function useBatch() {
   const [job,         setJob]         = useState<BatchJob | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [quality,     setQuality]     = useState<Quality>('fast')
+  const [isZipping,   setIsZipping]   = useState(false)
+  const [zipError,    setZipError]    = useState<string | null>(null)
 
-  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null)
-  const jobIdRef = useRef<string | null>(null)
+  const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const jobIdRef       = useRef<string | null>(null)
 
-  // ── Stop polling ───────────────────────────────────────────────────────
-  const stopPolling = useCallback(() => {
+  // ── Stop polling & close SSE stream ────────────────────────────────────
+  const cleanupSubscriptions = useCallback(() => {
     if (pollRef.current !== null) {
       clearInterval(pollRef.current)
       pollRef.current = null
     }
+    if (eventSourceRef.current !== null) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
+    }
   }, [])
 
   // Cleanup on unmount
-  useEffect(() => () => stopPolling(), [stopPolling])
+  useEffect(() => () => cleanupSubscriptions(), [cleanupSubscriptions])
 
-  // ── Poll job status ────────────────────────────────────────────────────
+  // ── Fallback Poll job status ───────────────────────────────────────────
   const startPolling = useCallback((jobId: string) => {
-    stopPolling()
+    if (pollRef.current !== null) return
+
     pollRef.current = setInterval(async () => {
       try {
         const res = await axios.get<BatchJob>(`/api/batch/${jobId}/status`)
         setJob(res.data)
         if (res.data.status === 'done') {
           setJobStatus('done')
-          stopPolling()
+          cleanupSubscriptions()
         } else {
           setJobStatus(res.data.status as JobStatus)
         }
@@ -72,7 +81,130 @@ export function useBatch() {
         // Non-fatal poll failure — keep trying
       }
     }, POLL_INTERVAL_MS)
-  }, [stopPolling])
+  }, [cleanupSubscriptions])
+
+  // ── Start Real-Time Tracking via SSE (with Polling fallback) ───────────
+  const startTracking = useCallback((jobId: string) => {
+    cleanupSubscriptions()
+
+    if (typeof EventSource === 'undefined') {
+      startPolling(jobId)
+      return
+    }
+
+    try {
+      const sse = new EventSource(`/api/batch/${jobId}/events`, { withCredentials: true })
+      eventSourceRef.current = sse
+
+      sse.addEventListener('snapshot', (e: MessageEvent) => {
+        try {
+          const data: BatchJob = JSON.parse(e.data)
+          setJob(data)
+          setJobStatus(data.status as JobStatus)
+          if (data.status === 'done') {
+            cleanupSubscriptions()
+          }
+        } catch {
+          // ignore parse errors
+        }
+      })
+
+      sse.addEventListener('job_started', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data)
+          setJobStatus('running')
+          setJob(prev => prev ? { ...prev, status: 'running', ...data } : null)
+        } catch {}
+      })
+
+      sse.addEventListener('file_processing', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data)
+          setJob(prev => {
+            if (!prev) return prev
+            const newFiles = [...prev.files]
+            if (newFiles[data.index]) {
+              newFiles[data.index] = {
+                ...newFiles[data.index],
+                status: 'processing',
+              }
+            }
+            return { ...prev, files: newFiles }
+          })
+        } catch {}
+      })
+
+      sse.addEventListener('file_done', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data)
+          setJob(prev => {
+            if (!prev) return prev
+            const newFiles = [...prev.files]
+            if (newFiles[data.index]) {
+              newFiles[data.index] = {
+                ...newFiles[data.index],
+                status: 'done',
+                output_filename: data.output_filename,
+                download_url: data.download_url,
+              }
+            }
+            return {
+              ...prev,
+              completed: data.completed,
+              failed: data.failed,
+              files: newFiles,
+            }
+          })
+        } catch {}
+      })
+
+      sse.addEventListener('file_error', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data)
+          setJob(prev => {
+            if (!prev) return prev
+            const newFiles = [...prev.files]
+            if (newFiles[data.index]) {
+              newFiles[data.index] = {
+                ...newFiles[data.index],
+                status: 'error',
+                error: data.error,
+              }
+            }
+            return {
+              ...prev,
+              completed: data.completed,
+              failed: data.failed,
+              files: newFiles,
+            }
+          })
+        } catch {}
+      })
+
+      sse.addEventListener('job_done', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data)
+          setJobStatus('done')
+          setJob(prev => prev ? {
+            ...prev,
+            status: 'done',
+            completed: data.completed,
+            failed: data.failed,
+            files: data.files,
+          } : null)
+          cleanupSubscriptions()
+        } catch {}
+      })
+
+      sse.onerror = () => {
+        // Fallback gracefully to polling if SSE connection encounters an issue
+        cleanupSubscriptions()
+        startPolling(jobId)
+      }
+    } catch {
+      startPolling(jobId)
+    }
+  }, [cleanupSubscriptions, startPolling])
 
   // ── Start batch job ────────────────────────────────────────────────────
   const startBatch = useCallback(async (files: File[]) => {
@@ -81,7 +213,7 @@ export function useBatch() {
     setJobStatus('uploading')
     setJob(null)
     setUploadError(null)
-    stopPolling()
+    cleanupSubscriptions()
 
     const formData = new FormData()
     files.forEach(f => formData.append('files', f))
@@ -95,7 +227,7 @@ export function useBatch() {
       )
       jobIdRef.current = res.data.job_id
       setJobStatus('pending')
-      startPolling(res.data.job_id)
+      startTracking(res.data.job_id)
     } catch (err) {
       const msg =
         axios.isAxiosError(err) && err.response?.data?.detail
@@ -104,27 +236,68 @@ export function useBatch() {
       setUploadError(msg)
       setJobStatus('error')
     }
-  }, [quality, startPolling, stopPolling])
+  }, [quality, startTracking, cleanupSubscriptions])
 
   // ── Download ZIP ───────────────────────────────────────────────────────
-  const downloadZip = useCallback(() => {
+  const downloadZip = useCallback(async (
+    format:  ZipFormat = 'png',
+    quality: number    = 90,
+  ) => {
     if (!jobIdRef.current) return
-    const a = document.createElement('a')
-    a.href = `/api/batch/${jobIdRef.current}/download`
-    a.download = 'batch_results.zip'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    setIsZipping(true)
+    setZipError(null)
+
+    try {
+      const res = await axios.get(
+        `/api/batch/${jobIdRef.current}/download-zip`,
+        {
+          params:       { format, quality },
+          responseType: 'blob',
+        },
+      )
+
+      // Determine filename from Content-Disposition or fall back to a default
+      const cd          = res.headers['content-disposition'] ?? ''
+      const nameMatch   = cd.match(/filename="?([^"]+)"?/)
+      const zipFilename = nameMatch?.[1] ?? `batch_results.zip`
+
+      // Create a temporary object URL and trigger browser save dialog
+      const url = URL.createObjectURL(res.data as Blob)
+      const a   = document.createElement('a')
+      a.href     = url
+      a.download = zipFilename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      // Small delay before revoking so the browser has time to start the download
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      const msg =
+        axios.isAxiosError(err) && err.response?.data
+          ? (() => {
+              // Response is a Blob — try to parse JSON error detail from it
+              try {
+                return JSON.parse(err.response!.data as string)?.detail ?? 'Download failed.'
+              } catch {
+                return 'Download failed. Please try again.'
+              }
+            })()
+          : 'Download failed. Please try again.'
+      setZipError(msg)
+    } finally {
+      setIsZipping(false)
+    }
   }, [])
 
   // ── Reset ──────────────────────────────────────────────────────────────
   const reset = useCallback(() => {
-    stopPolling()
+    cleanupSubscriptions()
     setJobStatus('idle')
     setJob(null)
     setUploadError(null)
+    setZipError(null)
     jobIdRef.current = null
-  }, [stopPolling])
+  }, [cleanupSubscriptions])
 
   // ── Derived progress ───────────────────────────────────────────────────
   const progressPct = job
@@ -140,6 +313,8 @@ export function useBatch() {
     setQuality,
     startBatch,
     downloadZip,
+    isZipping,
+    zipError,
     reset,
   }
 }
