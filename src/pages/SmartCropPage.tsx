@@ -2,6 +2,7 @@ import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import CropControls from '../components/CropControls'
 import QualityToggle from '../components/QualityToggle'
+import ImageCanvas from '../components/ImageCanvas'
 import { useSmartCrop } from '../hooks/useSmartCrop'
 
 const FEATURE_CHIPS = [
@@ -23,29 +24,29 @@ export default function SmartCropPage() {
   const isDone       = status === 'done' && result !== null
 
   return (
-    <main className="max-w-5xl mx-auto px-4 sm:px-6 py-12 flex flex-col gap-10">
+    <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 flex flex-col gap-6">
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <div className="text-center flex flex-col items-center gap-3">
+      <div className="text-center flex flex-col items-center gap-2">
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-teal/30 bg-teal/8 text-xs font-medium text-teal">
           <span className="w-1.5 h-1.5 rounded-full bg-teal animate-pulse" aria-hidden="true" />
           Smart Cropping
         </span>
-        <h1 className="text-4xl sm:text-5xl font-display font-bold text-primary leading-tight tracking-tight">
+        <h1 className="text-3xl sm:text-4xl font-display font-bold text-primary leading-tight tracking-tight">
           Auto-Crop to{' '}
           <span className="text-gradient-brand">Your Subject</span>
         </h1>
-        <p className="text-secondary text-base max-w-md leading-relaxed">
+        <p className="text-secondary text-sm max-w-md leading-relaxed">
           Upload a photo — we detect the subject and crop tightly around it.
           Adjust settings and <strong>Re-crop</strong> instantly without re-uploading.
         </p>
       </div>
 
-      {/* ── Two-column layout ────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      {/* ── Single column layout ────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-4">
 
-        {/* ── Left — upload / result ─────────────────────────────────────── */}
-        <div className="flex-1 flex flex-col gap-5">
+        {/* ── Upload / result section ─────────────────────────────────────── */}
+        <div className="flex flex-col gap-3">
 
           {/* Upload zone — only when no file yet */}
           {!isDone && !isProcessing && (
@@ -55,14 +56,14 @@ export default function SmartCropPage() {
           {/* Processing spinner */}
           {isProcessing && (
             <div role="status" aria-live="polite"
-              className="flex flex-col items-center gap-4 py-12 animate-fade-up">
-              <div className="relative w-14 h-14">
-                <svg className="absolute inset-0 w-14 h-14 animate-spin text-teal"
+              className="flex flex-col items-center gap-3 py-8 animate-fade-up">
+              <div className="relative w-10 h-10">
+                <svg className="absolute inset-0 w-10 h-10 animate-spin text-teal"
                   xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 56 56" aria-hidden="true">
                   <circle className="opacity-15" cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-80" fill="currentColor" d="M52 28a24 24 0 00-24-24v4a20 20 0 0120 20h4z" />
                 </svg>
-                <svg className="absolute inset-0 w-14 h-14 animate-spin text-magenta"
+                <svg className="absolute inset-0 w-10 h-10 animate-spin text-magenta"
                   style={{ animationDuration: '2s', animationDirection: 'reverse' }}
                   xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 56 56" aria-hidden="true">
                   <circle className="opacity-10" cx="28" cy="28" r="18" stroke="currentColor" strokeWidth="3" />
@@ -70,8 +71,8 @@ export default function SmartCropPage() {
                 </svg>
               </div>
               <div className="text-center">
-                <p className="text-primary font-medium">Removing background &amp; detecting subject…</p>
-                <p className="text-muted text-sm mt-0.5">This usually takes a few seconds</p>
+                <p className="text-primary text-sm font-medium">Removing background &amp; detecting subject…</p>
+                <p className="text-muted text-xs mt-0.5">This usually takes a few seconds</p>
               </div>
             </div>
           )}
@@ -93,34 +94,17 @@ export default function SmartCropPage() {
 
           {/* Result */}
           {isDone && result && (
-            <div className="flex flex-col gap-5 animate-fade-up">
+            <div className="flex flex-col gap-3 animate-fade-up">
 
-              {/* Before / After grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted text-center font-medium">Original</p>
-                  <div className="rounded-xl overflow-hidden border border-border bg-checker aspect-square">
-                    {originalUrl && (
-                      <img src={originalUrl} alt="Original"
-                        className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted text-center font-medium">Cropped</p>
-                  <div className="rounded-xl overflow-hidden border border-border bg-checker aspect-square">
-                    <img
-                      src={`/api/download/${result.cropped_filename}?v=${result.upload_id}`}
-                      alt="Smart cropped result"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Before / After comparison with ImageCanvas */}
+              <ImageCanvas
+                originalUrl={originalUrl!}
+                resultUrl={`/api/download/${result.cropped_filename}?v=${result.upload_id}`}
+              />
 
               {/* Crop metadata chips */}
               {result.crop_meta && (
-                <div className="flex flex-wrap gap-2 justify-center">
+                <div className="flex flex-wrap gap-1.5 justify-center">
                   {[
                     { label: `${result.crop_meta.width} × ${result.crop_meta.height}px`, icon: '📐' },
                     { label: `from ${result.crop_meta.original.width} × ${result.crop_meta.original.height}px`, icon: '🖼️' },
@@ -128,7 +112,7 @@ export default function SmartCropPage() {
                     { label: `${Math.round(settings.paddingPct * 100)}% padding`, icon: '🔲' },
                     { label: result.crop_meta.crop_mode === 'center' ? 'Center crop' : 'Subject crop', icon: result.crop_meta.crop_mode === 'center' ? '🎯' : '✂️' },
                   ].map(({ label, icon }) => (
-                    <span key={label} className="chip gap-1.5 text-xs">
+                    <span key={label} className="chip gap-1 text-[10px]">
                       <span aria-hidden="true">{icon}</span>{label}
                     </span>
                   ))}
@@ -136,24 +120,24 @@ export default function SmartCropPage() {
               )}
 
               {/* Actions */}
-              <div className="flex items-center justify-between gap-3 flex-wrap
-                p-4 bg-surface-raised rounded-xl border border-border">
-                <div className="flex items-center gap-2 text-sm text-secondary">
+              <div className="flex items-center justify-between gap-2 flex-wrap
+                p-3 bg-surface-raised rounded-lg border border-border">
+                <div className="flex items-center gap-1.5 text-xs text-secondary">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor"
-                    className="w-4 h-4 text-success shrink-0" aria-hidden="true">
+                    className="w-3.5 h-3.5 text-success shrink-0" aria-hidden="true">
                     <path fillRule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.844 4.574a.75.75 0 00-1.188-.918l-3.454 4.472-1.696-1.697a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.124-.096l4.024-5.07z" clipRule="evenodd" />
                   </svg>
                   Subject detected &amp; cropped
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <a
                     href={`/api/download/${result.removed_filename}`}
                     download={result.removed_filename}
-                    className="btn-ghost text-sm"
+                    className="btn-ghost text-xs"
                   >
                     Transparent PNG
                   </a>
-                  <button onClick={reset} className="btn-ghost text-sm">
+                  <button onClick={reset} className="btn-ghost text-xs">
                     New image
                   </button>
                   <DownloadButton
@@ -167,11 +151,11 @@ export default function SmartCropPage() {
 
           {/* Feature chips — first idle only */}
           {!isDone && !isProcessing && !hasFile && (
-            <div className="flex flex-col items-center gap-3 pt-2">
-              <p className="text-xs text-muted uppercase tracking-widest font-medium">Features</p>
-              <ul className="flex flex-wrap justify-center gap-2" aria-label="Smart crop features">
+            <div className="flex flex-col items-center gap-2 pt-1">
+              <p className="text-[10px] text-muted uppercase tracking-widest font-medium">Features</p>
+              <ul className="flex flex-wrap justify-center gap-1.5" aria-label="Smart crop features">
                 {FEATURE_CHIPS.map(({ label, icon }) => (
-                  <li key={label} className="chip gap-1.5">
+                  <li key={label} className="chip gap-1 text-[10px]">
                     <span aria-hidden="true">{icon}</span>
                     {label}
                   </li>
@@ -181,11 +165,10 @@ export default function SmartCropPage() {
           )}
         </div>
 
-        {/* ── Right — crop controls (always visible) ─────────────────────── */}
-        <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-4 self-start"
-          aria-label="Crop settings">
+        {/* ── Crop controls (below image) ─────────────────────────────────── */}
+        <div className="flex flex-col gap-3" aria-label="Crop settings">
 
-          <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <div className="rounded-lg border border-border bg-surface p-4 shadow-sm">
             <CropControls
               settings={settings}
               onChange={updateSetting}
@@ -193,7 +176,7 @@ export default function SmartCropPage() {
               disabled={isProcessing}
             />
             {/* Quality selector inside the controls panel */}
-            <div className="mt-5 pt-5 border-t border-border">
+            <div className="mt-4 pt-4 border-t border-border">
               <QualityToggle
                 value={settings.quality}
                 onChange={q => updateSetting('quality', q)}
@@ -209,7 +192,7 @@ export default function SmartCropPage() {
               disabled={isProcessing}
               className={`
                 w-full flex items-center justify-center gap-2
-                px-5 py-3 rounded-xl font-semibold text-sm
+                px-4 py-2.5 rounded-lg font-semibold text-xs
                 transition-all duration-200
                 ${!isProcessing
                   ? 'bg-magenta hover:bg-magenta-hover text-white shadow-sm hover:shadow-md active:scale-95'
@@ -220,7 +203,7 @@ export default function SmartCropPage() {
             >
               {isProcessing ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg"
+                  <svg className="w-3.5 h-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg"
                     fill="none" viewBox="0 0 24 24" aria-hidden="true">
                     <circle className="opacity-25" cx="12" cy="12" r="10"
                       stroke="currentColor" strokeWidth="4" />
@@ -232,7 +215,7 @@ export default function SmartCropPage() {
               ) : (
                 <>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
-                    fill="currentColor" className="w-4 h-4" aria-hidden="true">
+                    fill="currentColor" className="w-3.5 h-3.5" aria-hidden="true">
                     <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
                   </svg>
                   {isDone ? 'Re-crop with Settings' : 'Crop with Settings'}
@@ -272,7 +255,7 @@ export default function SmartCropPage() {
               </p>
             </div>
           )}
-        </aside>
+        </div>
       </div>
     </main>
   )
