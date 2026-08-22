@@ -238,13 +238,15 @@ export default function RecolorPage() {
                 </button>
               </div>
 
-              <RecolorCanvas
-                ref={canvasRef}
-                imageUrl={originalUrl}
-                brushSize={brush.size}
-                brushColor={brush.color}
-                disabled={isProcessing}
-              />
+              <CanvasErrorBoundary name="Recolor Canvas">
+                <RecolorCanvas
+                  ref={canvasRef}
+                  imageUrl={originalUrl}
+                  brushSize={brush.size}
+                  brushColor={brush.color}
+                  disabled={isProcessing}
+                />
+              </CanvasErrorBoundary>
             </div>
           )}
 
@@ -281,8 +283,7 @@ export default function RecolorPage() {
                   alt="Recoloured result — full view"
                   className="w-full object-contain max-h-[480px]"
                 />
-                  </CanvasErrorBoundary>
-                </div>
+              </div>
 
               {/* Actions bar */}
               <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">
@@ -383,8 +384,7 @@ export default function RecolorPage() {
                   aria-label="Hex colour value"
                   placeholder="#e83c6d"
                 />
-                  </CanvasErrorBoundary>
-                </div>
+              </div>
             </div>
 
             {/* Live preview swatch */}
