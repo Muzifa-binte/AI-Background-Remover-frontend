@@ -1,9 +1,12 @@
+import { useEffect } from 'react'
 import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import CropControls from '../components/CropControls'
 import QualityToggle from '../components/QualityToggle'
 import ImageCanvas from '../components/ImageCanvas'
+import SendToMenu from '../components/SendToMenu'
 import { useSmartCrop } from '../hooks/useSmartCrop'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 const FEATURE_CHIPS = [
   { label: 'Auto subject detection', icon: '🎯' },
@@ -19,6 +22,16 @@ export default function SmartCropPage() {
     settings, updateSetting, resetSettings,
     crop, reCrop, reset, hasFile,
   } = useSmartCrop()
+
+  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && !hasFile) {
+      crop(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isProcessing = status === 'processing'
   const isDone       = status === 'done' && result !== null
@@ -140,6 +153,7 @@ export default function SmartCropPage() {
                   <button onClick={reset} className="btn-ghost text-xs">
                     New image
                   </button>
+                  <SendToMenu excludeRoute="/smart-crop" />
                   <DownloadButton
                     downloadUrl={`/api/download/${result.cropped_filename}`}
                     filename={result.cropped_filename}

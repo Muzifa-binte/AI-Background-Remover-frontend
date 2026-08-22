@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import axios from 'axios'
 import apiClient from '../services/apiClient'
 import { useActiveImage } from '../contexts/ActiveImageContext'
+import { useStudioOutput } from './useStudioOutput'
 
 export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
 export type Quality = 'fast' | 'standard' | 'quality'
@@ -19,6 +20,7 @@ export function useUpload() {
   const [error,       setError]       = useState<string | null>(null)
   const [quality,     setQuality]     = useState<Quality>('fast')
   const { setActiveImage }            = useActiveImage()
+  const { registerOutput }            = useStudioOutput()
 
   const upload = useCallback(async (file: File, overrideQuality?: Quality) => {
     const q = overrideQuality ?? quality
@@ -44,6 +46,11 @@ export function useUpload() {
       })
       setResult(response.data)
       setStatus('success')
+      // Register output in the pipeline so SendToMenu can forward it
+      registerOutput(
+        `/api/download/${response.data.output_filename}`,
+        response.data.output_filename,
+      )
     } catch (err) {
       const msg =
         axios.isAxiosError(err) && err.response?.data?.detail

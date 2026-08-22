@@ -9,11 +9,13 @@
  *   5. Result shown alongside the original; user can download or repaint
  */
 
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import RecolorCanvas, { type RecolorCanvasHandle } from '../components/RecolorCanvas'
+import SendToMenu from '../components/SendToMenu'
 import { useRecolor, COLOR_PRESETS } from '../hooks/useRecolor'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 // ── Small sub-components ───────────────────────────────────────────────────
 
@@ -140,6 +142,16 @@ export default function RecolorPage() {
 
   const isProcessing = status === 'processing'
   const isDone       = status === 'done' && result !== null
+
+  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && !hasFile) {
+      loadFile(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Apply: export mask → submit ──────────────────────────────────────
   const handleApply = useCallback(async () => {
@@ -302,6 +314,7 @@ export default function RecolorPage() {
                   <button onClick={reset} className="btn-ghost text-sm">
                     New image
                   </button>
+                  <SendToMenu excludeRoute="/recolor" />
                   <DownloadButton
                     downloadUrl={`/api/download/${result.output_filename}`}
                     filename={result.output_filename}

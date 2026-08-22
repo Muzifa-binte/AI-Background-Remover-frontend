@@ -5,7 +5,9 @@ import ImageCanvas from '../components/ImageCanvas'
 import DownloadButton from '../components/DownloadButton'
 import QualityToggle from '../components/QualityToggle'
 import BackgroundPicker from '../components/BackgroundPicker'
+import SendToMenu from '../components/SendToMenu'
 import { useUpload } from '../hooks/useUpload'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 import type { BgSettings } from '../hooks/useReplaceBg'
 
 const FEATURE_CHIPS = [
@@ -117,6 +119,16 @@ export default function HomePage() {
       setReplaceStatus('error')
     }
   }
+
+  // ── Pipeline handoff: auto-trigger BG removal if navigated via "Send to…"
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && status === 'idle') {
+      upload(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Processing step cycling ──────────────────────────────────────────────
   const steps = quality === 'quality' ? QUALITY_STEPS
@@ -295,6 +307,7 @@ export default function HomePage() {
               >
                 Try another
               </button>
+              <SendToMenu excludeRoute="/" />
               <DownloadButton
                 downloadUrl={`/api/download/${result!.output_filename}`}
                 filename={result!.output_filename}
