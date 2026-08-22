@@ -132,8 +132,7 @@ const FEATURE_CHIPS = [
 ]
 
 export default function RecolorPage() {
-  const canvasRef = useRef<CanvasErrorBoundary name="Recolor Canvas">
-                <RecolorCanvasHandle>(null)
+  const canvasRef = useRef<RecolorCanvasHandle>(null)
 
   const {
     status, result, originalUrl, error, hasFile,
