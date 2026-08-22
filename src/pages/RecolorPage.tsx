@@ -249,8 +249,7 @@ export default function RecolorPage() {
                 </button>
               </div>
 
-              <CanvasErrorBoundary name="Recolor Canvas">
-                <RecolorCanvas
+                              <RecolorCanvas
                   ref={canvasRef}
                   imageUrl={originalUrl}
                   brushSize={brush.size}
