@@ -249,13 +249,13 @@ export default function RecolorPage() {
                 </button>
               </div>
 
-              <RecolorCanvas
-                ref={canvasRef}
-                imageUrl={originalUrl}
-                brushSize={brush.size}
-                brushColor={brush.color}
-                disabled={isProcessing}
-              />
+                              <RecolorCanvas
+                  ref={canvasRef}
+                  imageUrl={originalUrl}
+                  brushSize={brush.size}
+                  brushColor={brush.color}
+                  disabled={isProcessing}
+                />
             </div>
           )}
 
