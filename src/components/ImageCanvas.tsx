@@ -36,7 +36,6 @@ const viewLabels: Record<View, { label: string; icon: React.ReactNode }> = {
 
 export default function ImageCanvas({ originalUrl, resultUrl }: ImageCanvasProps) {
   const [view, setView] = useState<View>('result')
-  const [splitPos, setSplitPos] = useState(50)
 
   return (
     <div className="w-full flex flex-col gap-3 animate-fade-up">
@@ -68,101 +67,59 @@ export default function ImageCanvas({ originalUrl, resultUrl }: ImageCanvasProps
       </div>
 
       {/* Canvas */}
-      <div
-        className="relative w-full overflow-hidden rounded-xl border border-border bg-checker shadow-md"
-        style={{ minHeight: 320 }}
-        aria-label={`Image preview — ${view} view`}
-      >
-        {view === 'result' && (
-          <img
-            src={resultUrl}
-            alt="Background removed result"
-            className="w-full h-full object-contain max-h-[520px]"
-          />
-        )}
-
-        {view === 'original' && (
-          <img
-            src={originalUrl}
-            alt="Original uploaded image"
-            className="w-full h-full object-contain max-h-[520px]"
-          />
-        )}
-
-        {view === 'split' && (
-          <div className="relative w-full" style={{ minHeight: 320 }}>
-            {/* Original (left full) */}
-            <img
-              src={originalUrl}
-              alt="Original"
-              className="w-full object-contain max-h-[520px]"
-            />
-            {/* Result (right clip) */}
-            <div
-              className="absolute inset-0 overflow-hidden"
-              style={{ clipPath: `inset(0 0 0 ${splitPos}%)` }}
-            >
-              <div className="w-full h-full bg-checker">
-                <img
-                  src={resultUrl}
-                  alt="Result"
-                  className="w-full object-contain max-h-[520px]"
-                />
-              </div>
-            </div>
-
-            {/* Labels */}
-            <div className="absolute top-3 left-3 px-2 py-0.5 rounded text-[11px] font-medium bg-black/60 text-white backdrop-blur-sm" aria-hidden="true">
-              Original
-            </div>
-            <div
-              className="absolute top-3 px-2 py-0.5 rounded text-[11px] font-medium bg-black/60 text-white backdrop-blur-sm"
-              style={{ left: `calc(${splitPos}% + 12px)` }}
-              aria-hidden="true"
-            >
-              Result
-            </div>
-
-            {/* Divider line */}
-            <div
-              className="absolute top-0 bottom-0 w-0.5 bg-magenta pointer-events-none drop-shadow-lg"
-              style={{ left: `${splitPos}%` }}
-              aria-hidden="true"
-            />
-            {/* Handle knob */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-magenta border-2 border-white shadow-lg pointer-events-none flex items-center justify-center"
-              style={{ left: `${splitPos}%` }}
-              aria-hidden="true"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="white" className="w-3.5 h-3.5">
-                <path d="M5.72 3.22a.75.75 0 011.06 1.06L4.56 6.5h6.88l-2.22-2.22a.75.75 0 011.06-1.06l3.5 3.5a.75.75 0 010 1.06l-3.5 3.5a.75.75 0 11-1.06-1.06l2.22-2.22H4.56l2.22 2.22a.75.75 0 11-1.06 1.06l-3.5-3.5a.75.75 0 010-1.06l3.5-3.5z"/>
-              </svg>
+      {view === 'split' ? (
+        /* Side-by-side comparison view */
+        <div className="grid grid-cols-2 gap-3">
+          {/* Original panel */}
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-muted text-center font-medium">Original</p>
+            <div className="rounded-xl overflow-hidden border border-border bg-checker aspect-square">
+              <img
+                src={originalUrl}
+                alt="Original"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
-        )}
-      </div>
-
-      {/* Split slider */}
-      {view === 'split' && (
-        <div className="px-2">
-          <label htmlFor="split-slider" className="sr-only">Comparison slider position</label>
-          <input
-            id="split-slider"
-            type="range"
-            min={0}
-            max={100}
-            value={splitPos}
-            onChange={e => setSplitPos(Number(e.target.value))}
-            className="w-full"
-            aria-label="Slide to compare original and result"
-          />
-          <div className="flex justify-between text-[11px] text-muted mt-1 px-0.5" aria-hidden="true">
-            <span>Original</span>
-            <span>Result</span>
+          
+          {/* Result panel */}
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs text-muted text-center font-medium">Result</p>
+            <div className="rounded-xl overflow-hidden border border-border bg-checker aspect-square">
+              <img
+                src={resultUrl}
+                alt="Result"
+                className="w-full h-full object-contain"
+              />
+            </div>
           </div>
         </div>
+      ) : (
+        /* Single image view */
+        <div
+          className="relative w-full overflow-hidden rounded-xl border border-border bg-checker shadow-md"
+          style={{ minHeight: 320 }}
+          aria-label={`Image preview — ${view} view`}
+        >
+          {view === 'result' && (
+            <img
+              src={resultUrl}
+              alt="Background removed result"
+              className="w-full h-full object-contain max-h-[520px]"
+            />
+          )}
+
+          {view === 'original' && (
+            <img
+              src={originalUrl}
+              alt="Original uploaded image"
+              className="w-full h-full object-contain max-h-[520px]"
+            />
+          )}
+        </div>
       )}
+
+
     </div>
   )
 }

@@ -8,7 +8,7 @@ import axios from 'axios'
 
 const NAV_ITEMS = [
   {
-    to: '/', label: 'Upload', end: true,
+    to: '/', label: 'Remove/Replace BG', end: true,
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
         <path d="M8.75 2.75a.75.75 0 00-1.5 0v5.69L5.03 6.22a.75.75 0 00-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 00-1.06-1.06L8.75 8.44V2.75z" />
@@ -21,14 +21,6 @@ const NAV_ITEMS = [
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
         <path fillRule="evenodd" d="M8 1.5a.75.75 0 01.75.75v1a.75.75 0 01-1.5 0v-1A.75.75 0 018 1.5zM3.05 3.05a.75.75 0 011.06 0l.707.707A.75.75 0 113.757 4.82l-.707-.707a.75.75 0 010-1.062zm9.9 0a.75.75 0 010 1.06l-.706.708a.75.75 0 11-1.061-1.061l.707-.707a.75.75 0 011.06 0zM8 6a2 2 0 100 4A2 2 0 008 6zm-5.5 2a.75.75 0 000 1.5h1a.75.75 0 000-1.5h-1zm10 0a.75.75 0 000 1.5h1a.75.75 0 000-1.5h-1zm-2.136 3.728a.75.75 0 011.061 0l.707.707a.75.75 0 01-1.06 1.06l-.708-.706a.75.75 0 010-1.061zm-6.728 0a.75.75 0 010 1.06l-.707.708a.75.75 0 01-1.06-1.061l.707-.707a.75.75 0 011.06 0zM8 12.75a.75.75 0 01.75.75v1a.75.75 0 01-1.5 0v-1a.75.75 0 01.75-.75z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  {
-    to: '/replace-bg', label: 'Replace BG', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path d="M2.5 3.5A1.5 1.5 0 014 2h8a1.5 1.5 0 011.5 1.5v9A1.5 1.5 0 0112 14H4a1.5 1.5 0 01-1.5-1.5v-9zm1.5 0v5.396l1.542-1.23a.75.75 0 01.93 0L8 9.197l2.197-1.75a.75.75 0 01.93 0L12.5 8.5V3.5a.5.5 0 00-.5-.5H4a.5.5 0 00-.5.5zm8.5 5.836l-1.373-1.098-2.197 1.75a.75.75 0 01-.93 0L6 8.736 4 10.303V12.5a.5.5 0 00.5.5h7a.5.5 0 00.5-.5v-2.664zM7 6.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z" />
       </svg>
     ),
   },
@@ -81,7 +73,7 @@ function AppNavLink({ to, label, end, icon }: { to: string; label: string; end?:
       to={to}
       end={end}
       className={({ isActive }) =>
-        `relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
+        `relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
          transition-all duration-150 whitespace-nowrap select-none
          focus:outline-none focus-visible:ring-2 focus-visible:ring-magenta/50 ${
            isActive
@@ -400,7 +392,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border glass bg-surface/90">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-6">
 
         {/* Hamburger button — mobile only, logged-in only */}
         {user && (
@@ -453,7 +445,7 @@ export default function Navbar() {
         {/* Feature nav — desktop only, logged-in only */}
         {user && (
           <nav
-            className="hidden md:flex items-center gap-0.5 flex-1 justify-center"
+            className="hidden md:flex items-center gap-1 flex-1 justify-center"
             aria-label="Main navigation"
           >
             {NAV_ITEMS.map(item => (
@@ -469,7 +461,7 @@ export default function Navbar() {
         )}
 
         {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           <ThemeToggle />
 
           {!loading && (

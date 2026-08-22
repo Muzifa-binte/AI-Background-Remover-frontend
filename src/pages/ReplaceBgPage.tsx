@@ -1,8 +1,12 @@
+import { useEffect } from 'react'
 import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import BackgroundPicker from '../components/BackgroundPicker'
 import QualityToggle from '../components/QualityToggle'
+import ImageCanvas from '../components/ImageCanvas'
+import SendToMenu from '../components/SendToMenu'
 import { useReplaceBg } from '../hooks/useReplaceBg'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 // ── Step indicator ─────────────────────────────────────────────────────────
 
@@ -102,6 +106,16 @@ export default function ReplaceBgPage() {
     resetStep2,
   } = useReplaceBg()
 
+  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && removeStatus === 'idle') {
+      removeBackground(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const isRemoving  = removeStatus  === 'removing'
   const isReplacing = replaceStatus === 'replacing'
   const step1Done   = removeStatus  === 'removed'
@@ -195,36 +209,11 @@ export default function ReplaceBgPage() {
           {step2Done && replaceResult && (
             <div className="flex flex-col gap-4 animate-fade-up">
 
-              {/* Before / After side-by-side */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted text-center font-medium">Original</p>
-                  <div className="rounded-xl overflow-hidden border border-border bg-checker aspect-square">
-                    {originalUrl && (
-                      <img src={originalUrl} alt="Original" className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted text-center font-medium">Result</p>
-                  <div className="rounded-xl overflow-hidden border border-border aspect-square" style={{ background: '#f0f0f0' }}>
-                    <img
-                      src={`/api/download/${replaceResult.output_filename}`}
-                      alt="Result with new background"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Full result preview */}
-              <div className="rounded-xl overflow-hidden border border-border shadow-md">
-                <img
-                  src={`/api/download/${replaceResult.output_filename}`}
-                  alt="Final composited result"
-                  className="w-full object-contain max-h-[480px]"
-                />
-              </div>
+              {/* Before / After comparison with ImageCanvas */}
+              <ImageCanvas
+                originalUrl={originalUrl!}
+                resultUrl={`/api/download/${replaceResult.output_filename}`}
+              />
 
               {/* Actions */}
               <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">
@@ -244,6 +233,7 @@ export default function ReplaceBgPage() {
                   <button onClick={reset} className="btn-ghost text-sm">
                     Start over
                   </button>
+                  <SendToMenu excludeRoute="/replace-bg" />
                   <DownloadButton
                     downloadUrl={`/api/download/${replaceResult.output_filename}`}
                     filename={replaceResult.output_filename}

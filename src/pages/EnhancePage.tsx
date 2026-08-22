@@ -1,8 +1,11 @@
+import { useEffect } from 'react'
 import UploadZone from '../components/UploadZone'
 import ImageCanvas from '../components/ImageCanvas'
 import DownloadButton from '../components/DownloadButton'
 import EnhancementControls from '../components/EnhancementControls'
+import SendToMenu from '../components/SendToMenu'
 import { useEnhance } from '../hooks/useEnhance'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 const FEATURE_CHIPS = [
   { label: 'Brightness & Contrast', icon: '☀️' },
@@ -27,6 +30,16 @@ export default function EnhancePage() {
     reset,
     hasFile,
   } = useEnhance()
+
+  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && !hasFile) {
+      enhance(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isProcessing = status === 'uploading'
   const isDone       = status === 'success' && result !== null && originalUrl !== null
@@ -127,6 +140,7 @@ export default function EnhancePage() {
                   <button onClick={reset} className="btn-ghost text-sm">
                     New image
                   </button>
+                  <SendToMenu excludeRoute="/enhance" />
                   <DownloadButton
                     downloadUrl={`/api/download/${result!.output_filename}`}
                     filename={result!.output_filename}

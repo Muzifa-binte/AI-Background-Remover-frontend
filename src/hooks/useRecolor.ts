@@ -12,6 +12,7 @@
 import { useState, useCallback, useRef } from 'react'
 import axios from 'axios'
 import apiClient from '../services/apiClient'
+import { useStudioOutput } from './useStudioOutput'
 
 export type RecolorStatus = 'idle' | 'processing' | 'done' | 'error'
 
@@ -69,6 +70,8 @@ export function useRecolor() {
   // Keep File reference so we can re-submit without re-uploading
   const fileRef = useRef<File | null>(null)
 
+  const { registerOutput } = useStudioOutput()
+
   // ── Brush helpers ──────────────────────────────────────────────────────
   const updateBrush = useCallback(
     <K extends keyof BrushSettings>(key: K, value: BrushSettings[K]) =>
@@ -123,6 +126,11 @@ export function useRecolor() {
         )
         setResult(res.data)
         setStatus('done')
+        // Register output in the pipeline so SendToMenu can forward it
+        registerOutput(
+          `/api/download/${res.data.output_filename}`,
+          res.data.output_filename,
+        )
       } catch (err) {
         const msg =
           axios.isAxiosError(err) && err.response?.data?.detail

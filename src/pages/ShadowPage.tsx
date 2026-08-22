@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useUpload } from '../hooks/useUpload'
 import UploadZone from '../components/UploadZone'
 import QualityToggle from '../components/QualityToggle'
 import ShadowControls, { ShadowSettings } from '../components/ShadowControls'
 import CanvasErrorBoundary from '../components/CanvasErrorBoundary'
+import SendToMenu from '../components/SendToMenu'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 const DEFAULT_SETTINGS: ShadowSettings = {
   enabled: true,
@@ -38,6 +40,16 @@ export default function ShadowPage() {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png')
   const [previewBg, setPreviewBg]     = useState<PreviewBg>('transparent')
   const imgRef = useRef<HTMLImageElement>(null)
+
+  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && status === 'idle') {
+      upload(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isUploading = status === 'uploading'
   const isDone = status === 'success' && result !== null && originalUrl !== null
@@ -226,6 +238,8 @@ export default function ShadowPage() {
                   <button onClick={resetUpload} className="btn-ghost text-sm">
                     New Image
                   </button>
+
+                  <SendToMenu excludeRoute="/shadow" />
 
                   <button
                     onClick={handleDownload}

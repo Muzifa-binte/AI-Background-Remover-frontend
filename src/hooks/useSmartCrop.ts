@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import axios from 'axios'
+import { useStudioOutput } from './useStudioOutput'
 import type { Quality } from './useUpload'
 
 export type CropStatus = 'idle' | 'processing' | 'done' | 'error'
@@ -63,6 +64,8 @@ export function useSmartCrop() {
   // Separate state flag so React re-renders when a file is loaded/cleared
   const [hasFile, setHasFile] = useState(false)
 
+  const { registerOutput } = useStudioOutput()
+
   const updateSetting = useCallback(
     <K extends keyof CropSettings>(key: K, value: CropSettings[K]) => {
       setSettings(prev => ({ ...prev, [key]: value }))
@@ -86,6 +89,11 @@ export function useSmartCrop() {
       )
       setResult(res.data)
       setStatus('done')
+      // Register output in the pipeline so SendToMenu can forward it
+      registerOutput(
+        `/api/download/${res.data.cropped_filename}`,
+        res.data.cropped_filename,
+      )
     } catch (err) {
       const msg =
         axios.isAxiosError(err) && err.response?.data?.detail
