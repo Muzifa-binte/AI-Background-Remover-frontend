@@ -3,7 +3,6 @@ import { useUpload } from '../hooks/useUpload'
 import UploadZone from '../components/UploadZone'
 import QualityToggle from '../components/QualityToggle'
 import ShadowControls, { ShadowSettings } from '../components/ShadowControls'
-import CanvasErrorBoundary from '../components/CanvasErrorBoundary'
 import SendToMenu from '../components/SendToMenu'
 import { useActiveImage } from '../contexts/ActiveImageContext'
 
@@ -183,7 +182,6 @@ export default function ShadowPage() {
               </div>
 
               {/* Preview canvas */}
-              <CanvasErrorBoundary name="Shadow Preview Canvas">
               <div
                 className={`relative w-full overflow-hidden rounded-xl border border-border shadow-md flex items-center justify-center p-10 transition-colors ${PREVIEW_BG[previewBg].className}`}
                 style={{ minHeight: 400 }}
@@ -197,8 +195,6 @@ export default function ShadowPage() {
                   crossOrigin="anonymous"
                 />
               </div>
-
-              </CanvasErrorBoundary>
 
               {/* Actions bar */}
               <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">
