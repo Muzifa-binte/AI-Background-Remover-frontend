@@ -2,6 +2,7 @@ import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import BackgroundPicker from '../components/BackgroundPicker'
 import QualityToggle from '../components/QualityToggle'
+import ImageCanvas from '../components/ImageCanvas'
 import { useReplaceBg } from '../hooks/useReplaceBg'
 
 // ── Step indicator ─────────────────────────────────────────────────────────
@@ -195,36 +196,11 @@ export default function ReplaceBgPage() {
           {step2Done && replaceResult && (
             <div className="flex flex-col gap-4 animate-fade-up">
 
-              {/* Before / After side-by-side */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted text-center font-medium">Original</p>
-                  <div className="rounded-xl overflow-hidden border border-border bg-checker aspect-square">
-                    {originalUrl && (
-                      <img src={originalUrl} alt="Original" className="w-full h-full object-contain" />
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs text-muted text-center font-medium">Result</p>
-                  <div className="rounded-xl overflow-hidden border border-border aspect-square" style={{ background: '#f0f0f0' }}>
-                    <img
-                      src={`/api/download/${replaceResult.output_filename}`}
-                      alt="Result with new background"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Full result preview */}
-              <div className="rounded-xl overflow-hidden border border-border shadow-md">
-                <img
-                  src={`/api/download/${replaceResult.output_filename}`}
-                  alt="Final composited result"
-                  className="w-full object-contain max-h-[480px]"
-                />
-              </div>
+              {/* Before / After comparison with ImageCanvas */}
+              <ImageCanvas
+                originalUrl={originalUrl!}
+                resultUrl={`/api/download/${replaceResult.output_filename}`}
+              />
 
               {/* Actions */}
               <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">

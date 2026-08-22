@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
+import axios from 'axios'
 import UploadZone from '../components/UploadZone'
 import ImageCanvas from '../components/ImageCanvas'
 import DownloadButton from '../components/DownloadButton'
 import QualityToggle from '../components/QualityToggle'
+import BackgroundPicker from '../components/BackgroundPicker'
 import { useUpload } from '../hooks/useUpload'
+import type { BgSettings } from '../hooks/useReplaceBg'
 
 const FEATURE_CHIPS = [
   { label: 'JPEG, PNG, WebP',       icon: '🖼️' },
@@ -42,6 +45,78 @@ const STEP_INTERVAL = 2800  // ms between step advances
 
 export default function HomePage() {
   const { status, result, originalUrl, error, quality, setQuality, upload, reset } = useUpload()
+  
+  // Background replacement state
+  const [showReplaceBg, setShowReplaceBg] = useState(false)
+  const [replaceStatus, setReplaceStatus] = useState<'idle' | 'replacing' | 'done' | 'error'>('idle')
+  const [replaceResult, setReplaceResult] = useState<any>(null)
+  const [replaceError, setReplaceError] = useState<string | null>(null)
+  
+  // Background settings
+  const [bgSettings, setBgSettings] = useState<BgSettings>({
+    bgType: 'solid',
+    solidColor: '#ffffff',
+    gradientStart: '#e8336d',
+    gradientEnd: '#2fbfb0',
+    gradientDir: 'vertical',
+    bgFile: null,
+    bgFit: 'cover',
+    libraryUrl: null,
+  })
+
+  const updateBgSetting = <K extends keyof BgSettings>(key: K, value: BgSettings[K]) => {
+    setBgSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  const resetBgSettings = () => {
+    setBgSettings({
+      bgType: 'solid',
+      solidColor: '#ffffff',
+      gradientStart: '#e8336d',
+      gradientEnd: '#2fbfb0',
+      gradientDir: 'vertical',
+      bgFile: null,
+      bgFit: 'cover',
+      libraryUrl: null,
+    })
+  }
+
+  const isReplacing = replaceStatus === 'replacing'
+  const replaceDone = replaceStatus === 'done' && replaceResult !== null
+
+  // Replace background function
+  const handleReplaceBackground = async () => {
+    if (!result) return
+
+    setReplaceStatus('replacing')
+    setReplaceResult(null)
+    setReplaceError(null)
+
+    const formData = new FormData()
+    formData.append('fg_filename', result.output_filename)
+    formData.append('bg_type', bgSettings.bgType === 'library' ? 'image' : bgSettings.bgType)
+    formData.append('solid_color', bgSettings.solidColor)
+    formData.append('gradient_start', bgSettings.gradientStart)
+    formData.append('gradient_end', bgSettings.gradientEnd)
+    formData.append('gradient_dir', bgSettings.gradientDir)
+    formData.append('bg_fit', bgSettings.bgFit)
+    
+    if ((bgSettings.bgType === 'image' || bgSettings.bgType === 'library') && bgSettings.bgFile) {
+      formData.append('bg_file', bgSettings.bgFile)
+    }
+
+    try {
+      const res = await axios.post('/api/replace-background', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setReplaceResult(res.data)
+      setReplaceStatus('done')
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || 'Background replacement failed. Please try again.'
+      setReplaceError(msg)
+      setReplaceStatus('error')
+    }
+  }
 
   // ── Processing step cycling ──────────────────────────────────────────────
   const steps = quality === 'quality' ? QUALITY_STEPS
@@ -209,6 +284,12 @@ export default function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowReplaceBg(!showReplaceBg)}
+                className="btn-ghost text-sm"
+              >
+                {showReplaceBg ? 'Hide Replace BG' : 'Replace Background'}
+              </button>
+              <button
                 onClick={reset}
                 className="btn-ghost text-sm"
               >
@@ -220,6 +301,87 @@ export default function HomePage() {
               />
             </div>
           </div>
+
+          {/* Background replacement section */}
+          {showReplaceBg && (
+            <div className="flex flex-col gap-4 animate-fade-up">
+              <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+                <BackgroundPicker
+                  settings={bgSettings}
+                  onChange={updateBgSetting}
+                  onReset={resetBgSettings}
+                  disabled={isReplacing}
+                />
+              </div>
+
+              {/* Replace background button */}
+              <button
+                onClick={handleReplaceBackground}
+                disabled={isReplacing}
+                className={`
+                  w-full flex items-center justify-center gap-2
+                  px-5 py-3 rounded-xl font-semibold text-sm
+                  transition-all duration-200
+                  ${!isReplacing
+                    ? 'bg-magenta hover:bg-magenta-hover text-white shadow-sm hover:shadow-md active:scale-95'
+                    : 'bg-surface-raised text-muted border border-border cursor-not-allowed'
+                  }
+                `}
+              >
+                {isReplacing ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    Replacing background…
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
+                      <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+                    </svg>
+                    Apply New Background
+                  </>
+                )}
+              </button>
+
+              {/* Replace background result */}
+              {replaceDone && replaceResult && (
+                <div className="flex flex-col gap-3 animate-fade-up">
+                  <ImageCanvas
+                    originalUrl={originalUrl!}
+                    resultUrl={`/api/download/${replaceResult.output_filename}`}
+                  />
+                  <div className="flex items-center justify-between gap-3 flex-wrap p-3 bg-surface-raised rounded-lg border border-border">
+                    <div className="flex items-center gap-2 text-xs text-secondary">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-success shrink-0" aria-hidden="true">
+                        <path fillRule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.844 4.574a.75.75 0 00-1.188-.918l-3.454 4.472-1.696-1.697a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.124-.096l4.024-5.07z" clipRule="evenodd" />
+                      </svg>
+                      Background replaced
+                    </div>
+                    <DownloadButton
+                      downloadUrl={`/api/download/${replaceResult.output_filename}`}
+                      filename={replaceResult.output_filename}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Replace background error */}
+              {replaceError && (
+                <div role="alert" className="flex items-start gap-3 rounded-lg bg-surface border border-danger/40 px-4 py-3.5 animate-fade-up">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-danger shrink-0 mt-0.5" aria-hidden="true">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.75-8.75a.75.75 0 011.5 0v3.5a.75.75 0 01-1.5 0v-3.5zm.75-1.5a1 1 0 110-2 1 1 0 010 2z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-danger">Background replacement failed</p>
+                    <p className="text-xs text-secondary mt-0.5">{replaceError}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Tip — shown only for fast/standard mode results */}
           {result?.quality === 'fast' && (
