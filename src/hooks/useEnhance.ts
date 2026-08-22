@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import axios from 'axios'
+import { useStudioOutput } from './useStudioOutput'
 
 export type EnhanceStatus = 'idle' | 'uploading' | 'success' | 'error'
 
@@ -59,6 +60,8 @@ export function useEnhance() {
   // State flag so React re-renders when a file is loaded/cleared
   const [hasFile, setHasFile] = useState(false)
 
+  const { registerOutput } = useStudioOutput()
+
   const updateSetting = useCallback(
     <K extends keyof EnhanceSettings>(key: K, value: EnhanceSettings[K]) => {
       setSettings(prev => ({ ...prev, [key]: value }))
@@ -82,6 +85,11 @@ export function useEnhance() {
       )
       setResult(response.data)
       setStatus('success')
+      // Register output in the pipeline so SendToMenu can forward it
+      registerOutput(
+        `/api/download/${response.data.output_filename}`,
+        response.data.output_filename,
+      )
     } catch (err) {
       const msg =
         axios.isAxiosError(err) && err.response?.data?.detail

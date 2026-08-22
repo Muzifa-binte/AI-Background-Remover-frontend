@@ -1,9 +1,12 @@
+import { useEffect } from 'react'
 import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import BackgroundPicker from '../components/BackgroundPicker'
 import QualityToggle from '../components/QualityToggle'
 import ImageCanvas from '../components/ImageCanvas'
+import SendToMenu from '../components/SendToMenu'
 import { useReplaceBg } from '../hooks/useReplaceBg'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 // ── Step indicator ─────────────────────────────────────────────────────────
 
@@ -102,6 +105,16 @@ export default function ReplaceBgPage() {
     reset,
     resetStep2,
   } = useReplaceBg()
+
+  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
+  const { activeFile } = useActiveImage()
+  useEffect(() => {
+    if (activeFile && removeStatus === 'idle') {
+      removeBackground(activeFile)
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isRemoving  = removeStatus  === 'removing'
   const isReplacing = replaceStatus === 'replacing'
@@ -220,6 +233,7 @@ export default function ReplaceBgPage() {
                   <button onClick={reset} className="btn-ghost text-sm">
                     Start over
                   </button>
+                  <SendToMenu excludeRoute="/replace-bg" />
                   <DownloadButton
                     downloadUrl={`/api/download/${replaceResult.output_filename}`}
                     filename={replaceResult.output_filename}

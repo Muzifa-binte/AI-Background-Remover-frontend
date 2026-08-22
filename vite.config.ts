@@ -13,6 +13,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split heavy vendor libs into separate cached chunks
+          'vendor-react':  ['react', 'react-dom', 'react-router-dom'],
+          'vendor-axios':  ['axios'],
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',
@@ -21,4 +32,5 @@ export default defineConfig({
     css: false,
   },
 })
+
 

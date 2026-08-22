@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import axios from 'axios'
 import { useActiveImage } from '../contexts/ActiveImageContext'
+import { useStudioOutput } from './useStudioOutput'
 import type { Quality } from './useUpload'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ export const DEFAULT_BG_SETTINGS: BgSettings = {
 
 export function useReplaceBg() {
   const { setActiveImage } = useActiveImage()
+  const { registerOutput } = useStudioOutput()
   // Step 1 — remove bg
   const [removeStatus,  setRemoveStatus]  = useState<RemoveStatus>('idle')
   const [removeResult,  setRemoveResult]  = useState<RemoveResult | null>(null)
@@ -165,6 +167,11 @@ export function useReplaceBg() {
       )
       setReplaceResult(res.data)
       setReplaceStatus('done')
+      // Register output in the pipeline so SendToMenu can forward it
+      registerOutput(
+        `/api/download/${res.data.output_filename}`,
+        res.data.output_filename,
+      )
     } catch (err) {
       const msg =
         axios.isAxiosError(err) && err.response?.data?.detail
