@@ -252,11 +252,11 @@ export default function RecolorPage() {
 
               <CanvasErrorBoundary name="Recolor Canvas">
                 <RecolorCanvas
-                ref={canvasRef}
-                imageUrl={originalUrl}
-                brushSize={brush.size}
-                brushColor={brush.color}
-                disabled={isProcessing}
+                  ref={canvasRef}
+                  imageUrl={originalUrl}
+                  brushSize={brush.size}
+                  brushColor={brush.color}
+                  disabled={isProcessing}
                 />
               </CanvasErrorBoundary>
             </div>
