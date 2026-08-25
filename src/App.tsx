@@ -29,6 +29,7 @@ const BatchPage = lazy(() => import('./pages/BatchPage'))
 const ShadowPage = lazy(() => import('./pages/ShadowPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const AIAnalysisPage = lazy(() => import('./pages/AIAnalysisPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // ── ChatbotWidget ──────────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ function MainLayout() {
               <Route path="/shadow" element={<ProtectedRoute><ShadowPage /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/ai-analysis" element={<ProtectedRoute><AIAnalysisPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFoundPage />} />

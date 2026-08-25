@@ -50,6 +50,14 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/ai-analysis', label: 'AI Tools', end: false,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+        <path fillRule="evenodd" d="M8 1.5A6.5 6.5 0 1014.5 8 6.5 6.5 0 008 1.5zm.75 3.5a.75.75 0 011.5 0v1.75a.75.75 0 01-1.5 0V5zm-3 0a.75.75 0 011.5 0v1.75a.75.75 0 01-1.5 0V5zM8 11.5a3.5 3.5 0 01-3.5-3.5h7A3.5 3.5 0 018 11.5z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
     to: '/batch', label: 'Batch', end: false,
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">

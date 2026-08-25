@@ -96,7 +96,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 export default function ReplaceBgPage() {
   const {
-    removeStatus, originalUrl, removedUrl, removeError,
+    removeStatus, removeResult, originalUrl, removedUrl, removeError,
     removeBackground,
     quality, setQuality,
     replaceStatus, replaceResult, replaceError,
@@ -106,15 +106,69 @@ export default function ReplaceBgPage() {
     resetStep2,
   } = useReplaceBg()
 
-  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
-  const { activeFile } = useActiveImage()
+  // ── Pipeline handoff: auto-load / stage if navigated via "Send to…" ────────────
+  const { activeFile, activePreviewUrl } = useActiveImage()
   useEffect(() => {
-    if (activeFile && removeStatus === 'idle') {
-      removeBackground(activeFile)
+    if (activeFile) {
+      const cachedPreset = sessionStorage.getItem('bg_preset_settings')
+      if (cachedPreset) {
+        sessionStorage.removeItem('bg_preset_settings')
+        try {
+          const parsed = JSON.parse(cachedPreset)
+          Object.entries(parsed).forEach(([key, val]) => {
+            updateSetting(key as any, val)
+          })
+          
+          const autoApply = sessionStorage.getItem('bg_preset_auto_apply') === 'true'
+          sessionStorage.removeItem('bg_preset_auto_apply')
+          if (autoApply) {
+            sessionStorage.setItem('bg_preset_pending_replace', JSON.stringify(parsed))
+          }
+
+          // Auto-run background removal for AI preset suggestions!
+          removeBackground(activeFile)
+        } catch (e) {
+          // ignore
+        }
+      }
     }
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activeFile, updateSetting, removeBackground])
+
+  // Auto-run background replace once removal succeeds
+  useEffect(() => {
+    if (removeStatus === 'removed' && removeResult) {
+      const pendingReplace = sessionStorage.getItem('bg_preset_pending_replace')
+      if (pendingReplace) {
+        sessionStorage.removeItem('bg_preset_pending_replace')
+        try {
+          const parsed = JSON.parse(pendingReplace)
+          replaceBackground(parsed)
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, [removeStatus, removeResult, replaceBackground])
+
+  // Listen for AI assistant apply events
+  useEffect(() => {
+    const handlePresetEvent = (e: Event) => {
+      const customEvent = e as CustomEvent
+      if (customEvent.detail?.type === 'apply_bg') {
+        const parsed = customEvent.detail.data
+        if (activeFile) {
+          if (removeStatus === 'removed' && removeResult) {
+            replaceBackground(parsed)
+          } else {
+            sessionStorage.setItem('bg_preset_pending_replace', JSON.stringify(parsed))
+            removeBackground(activeFile)
+          }
+        }
+      }
+    }
+    window.addEventListener('apply_ai_preset', handlePresetEvent)
+    return () => window.removeEventListener('apply_ai_preset', handlePresetEvent)
+  }, [activeFile, removeStatus, removeResult, replaceBackground, removeBackground])
 
   const isRemoving  = removeStatus  === 'removing'
   const isReplacing = replaceStatus === 'replacing'
@@ -168,18 +222,41 @@ export default function ReplaceBgPage() {
           {/* STEP 1: idle / uploading */}
           {!step1Done && (
             <>
-              {isRemoving
-                ? <Spinner label="Removing background…" />
-                : (
-                  <div className="flex flex-col gap-4">
-                    <UploadZone onFile={removeBackground} disabled={busy} />
-                    {/* Quality selector — shown while waiting for upload */}
-                    <div className="flex justify-center">
-                      <QualityToggle value={quality} onChange={setQuality} disabled={busy} />
-                    </div>
+              {isRemoving ? (
+                <Spinner label="Removing background…" />
+              ) : activeFile && removeStatus === 'idle' ? (
+                <div className="card p-6 flex flex-col items-center gap-4 text-center max-w-lg mx-auto animate-fade-up">
+                  <div className="relative w-full overflow-hidden rounded-xl border border-border bg-checker shadow-md" style={{ minHeight: 300 }}>
+                    {activePreviewUrl && (
+                      <img src={activePreviewUrl} className="w-full object-contain max-h-[400px]" alt="Staged target" />
+                    )}
                   </div>
-                )
-              }
+                  <div className="flex justify-center w-full">
+                    <QualityToggle value={quality} onChange={setQuality} disabled={busy} />
+                  </div>
+                  <div className="flex gap-3 w-full justify-center">
+                    <button
+                      onClick={reset}
+                      className="btn-ghost text-xs py-2 px-4"
+                    >
+                      Change Image
+                    </button>
+                    <button
+                      onClick={() => removeBackground(activeFile)}
+                      className="btn-primary text-xs py-2 px-6 font-bold shadow-md"
+                    >
+                      ✨ Remove Background
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <UploadZone onFile={removeBackground} disabled={busy} />
+                  <div className="flex justify-center">
+                    <QualityToggle value={quality} onChange={setQuality} disabled={busy} />
+                  </div>
+                </div>
+              )}
               {removeError && <ErrorBanner message={removeError} />}
             </>
           )}

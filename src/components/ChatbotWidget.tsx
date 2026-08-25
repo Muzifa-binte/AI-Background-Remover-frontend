@@ -4,7 +4,8 @@ import type { Message, ChatResponse, ImageAnalysis, CaptionStyle } from '../type
 import { chatService } from '../services/chatService'
 import { imageService } from '../services/imageService'
 import { useActiveImage } from '../contexts/ActiveImageContext'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useToast } from '../hooks/useToast'
 
 // ─── Mode Types ───────────────────────────────────────────────────────────────
 
@@ -238,7 +239,13 @@ const MiniUploader: React.FC<MiniUploaderProps> = ({ file, previewUrl, onUpload,
 
 // ─── Chat Message Bubble ──────────────────────────────────────────────────────
 
-const WidgetMessage: React.FC<{ role: 'user' | 'assistant'; content: string; thinking?: string | null }> = ({ role, content, thinking }) => {
+const WidgetMessage: React.FC<{
+  role: 'user' | 'assistant'
+  content: string
+  thinking?: string | null
+  action?: any
+  onApplyAction?: (action: any) => void
+}> = ({ role, content, thinking, action, onApplyAction }) => {
   const isUser = role === 'user'
   const [showThinking, setShowThinking] = useState(false)
   return (
@@ -275,6 +282,27 @@ const WidgetMessage: React.FC<{ role: 'user' | 'assistant'; content: string; thi
         }`}>
           {formatMessage(content, isUser)}
         </div>
+
+        {/* Action Suggestion Card */}
+        {!isUser && action && onApplyAction && (
+          <div className="rounded-xl border border-magenta/30 bg-magenta/5 p-3 flex flex-col gap-2 shadow-sm animate-fade-up mt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">✨</span>
+              <p className="text-[10px] font-black uppercase text-magenta tracking-wider">AI Suggests Image Update</p>
+            </div>
+            <p className="text-xs text-secondary leading-snug">
+              {action.type === 'apply_bg' && `Replace background with ${action.bgType === 'solid' ? `solid color ${action.solidColor}` : 'AI library image'}.`}
+              {action.type === 'apply_enhance' && 'Optimize image exposure, white balance, and contrast settings.'}
+              {action.type === 'apply_crop' && `Crop subject to aspect ratio ${action.aspectRatio}.`}
+            </p>
+            <button
+              onClick={() => onApplyAction(action)}
+              className="btn-primary text-[10px] py-1.5 px-3 self-start font-bold mt-1 shadow-sm flex items-center gap-1"
+            >
+              🚀 Apply Suggested Change
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -288,6 +316,8 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const [mode, setMode] = useState<Mode>('chat')
   const [unread, setUnread] = useState(0)
+  const navigate = useNavigate()
+  const { showToast } = useToast()
 
   // Context active image context
   const { activeFile: contextFile, activePreviewUrl: contextPreviewUrl, setActiveImage } = useActiveImage()
@@ -298,6 +328,55 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
 
   const activeFile = contextFile ?? internalFile
   const activePreviewUrl = contextPreviewUrl ?? internalPreviewUrl
+
+  const handleApplyAction = async (action: any) => {
+    if (action.type === 'apply_bg') {
+      const preset = {
+        bgType: action.bgType,
+        solidColor: action.solidColor || '#ffffff',
+        libraryUrl: action.libraryUrl || null
+      }
+      sessionStorage.setItem('bg_preset_settings', JSON.stringify(preset))
+      sessionStorage.setItem('bg_preset_auto_apply', 'true')
+      if (activeFile && activePreviewUrl) {
+        showToast('AI background preset loaded!', 'success')
+        setActiveImage(activeFile, activePreviewUrl)
+        window.dispatchEvent(new CustomEvent('apply_ai_preset', { detail: { type: 'apply_bg', data: preset } }))
+        navigate('/replace-bg')
+      }
+    } else if (action.type === 'apply_enhance') {
+      const preset = {
+        brightness: action.brightness ?? 1.0,
+        contrast: action.contrast ?? 1.0,
+        saturation: action.saturation ?? 1.0,
+        sharpness: action.sharpness ?? 1.0,
+        denoise: action.denoise ?? false,
+        auto_wb: action.auto_wb ?? false,
+        denoise_strength: action.denoise_strength ?? 9
+      }
+      sessionStorage.setItem('enhance_preset_settings', JSON.stringify(preset))
+      sessionStorage.setItem('enhance_preset_auto_apply', 'true')
+      if (activeFile && activePreviewUrl) {
+        showToast('AI optimal enhancements loaded!', 'success')
+        setActiveImage(activeFile, activePreviewUrl)
+        window.dispatchEvent(new CustomEvent('apply_ai_preset', { detail: { type: 'apply_enhance', data: preset } }))
+        navigate('/enhance')
+      }
+    } else if (action.type === 'apply_crop') {
+      const preset = {
+        aspectRatio: action.aspectRatio ?? 'free',
+        paddingPct: action.paddingPct ?? 0.05
+      }
+      sessionStorage.setItem('crop_preset_settings', JSON.stringify(preset))
+      sessionStorage.setItem('crop_preset_auto_apply', 'true')
+      if (activeFile && activePreviewUrl) {
+        showToast('AI crop preset loaded!', 'success')
+        setActiveImage(activeFile, activePreviewUrl)
+        window.dispatchEvent(new CustomEvent('apply_ai_preset', { detail: { type: 'apply_crop', data: preset } }))
+        navigate('/smart-crop')
+      }
+    }
+  }
 
   // ── Chat state ────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([])
@@ -411,7 +490,14 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       const routeContext = getPromptContextForPath(currentPath)
       const combinedText = `${routeContext}\n\nUser Message: ${text}`
       const res: ChatResponse = await chatService.sendMessage(combinedText, activeFile)
-      const aiMsg: Message = { id: Date.now() + '-a', role: 'assistant', content: res.reply, thinking: res.thinking, timestamp: Date.now() }
+      const aiMsg: Message = { 
+        id: Date.now() + '-a', 
+        role: 'assistant', 
+        content: res.reply, 
+        thinking: res.thinking, 
+        action: res.action, 
+        timestamp: Date.now() 
+      }
       setMessages(prev => [...prev, aiMsg])
       if (!isOpen) setUnread(n => n + 1)
     } catch (e: any) {
@@ -550,7 +636,16 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
               </div>
             ) : (
               <>
-                {messages.map(msg => <WidgetMessage key={msg.id} role={msg.role} content={msg.content} thinking={msg.thinking} />)}
+                {messages.map(msg => (
+                  <WidgetMessage 
+                    key={msg.id} 
+                    role={msg.role} 
+                    content={msg.content} 
+                    thinking={msg.thinking} 
+                    action={msg.action}
+                    onApplyAction={handleApplyAction}
+                  />
+                ))}
                 {chatLoading && (
                   <div className="flex gap-2 mr-auto">
                     <div className="w-6 h-6 rounded-lg bg-teal/10 border border-teal/20 flex items-center justify-center shrink-0">

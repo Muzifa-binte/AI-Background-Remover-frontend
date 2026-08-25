@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { useStudioOutput } from './useStudioOutput'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 export type EnhanceStatus = 'idle' | 'uploading' | 'success' | 'error'
 
@@ -55,6 +56,8 @@ export function useEnhance() {
   const [error,       setError]       = useState<string | null>(null)
   const [settings,    setSettings]    = useState<EnhanceSettings>(DEFAULT_SETTINGS)
 
+  const { setActiveImage } = useActiveImage()
+
   // Keep a ref to the last uploaded File so re-apply doesn't need a new upload
   const fileRef = useRef<File | null>(null)
   // State flag so React re-renders when a file is loaded/cleared
@@ -100,9 +103,20 @@ export function useEnhance() {
     }
   }, [])
 
+  // ── Load file without processing (staging) ──────────────────────────
+  const loadFile = useCallback((file: File) => {
+    fileRef.current = file
+    setHasFile(true)
+    const localUrl = URL.createObjectURL(file)
+    setOriginalUrl(prev => {
+      if (prev) URL.revokeObjectURL(prev)
+      return localUrl
+    })
+  }, [])
+
   // ── First upload: store file + create preview URL ─────────────────────
   const enhance = useCallback(
-    async (file: File) => {
+    async (file: File, customSettings?: EnhanceSettings) => {
       fileRef.current = file
       setHasFile(true)
 
@@ -113,16 +127,22 @@ export function useEnhance() {
         return localUrl
       })
 
-      await _post(file, settings)
+      // Sync with global ActiveImageContext
+      setActiveImage(file, localUrl)
+
+      await _post(file, customSettings || settings)
     },
-    [settings, _post],
+    [settings, _post, setActiveImage],
   )
 
-  // ── Re-apply with current settings (no re-upload needed) ─────────────
-  const reEnhance = useCallback(async () => {
+  const reEnhance = useCallback(async (customSettings?: EnhanceSettings | any) => {
     const file = fileRef.current
     if (!file) return
-    await _post(file, settings)
+    const isPreset = customSettings && !customSettings.nativeEvent
+    if (isPreset) {
+      setSettings(prev => ({ ...prev, ...customSettings }))
+    }
+    await _post(file, isPreset ? { ...settings, ...customSettings } : settings)
   }, [settings, _post])
 
   const reset = useCallback(() => {
@@ -136,7 +156,10 @@ export function useEnhance() {
     fileRef.current = null
     setHasFile(false)
     setSettings(DEFAULT_SETTINGS)
-  }, [])
+
+    // Sync with global ActiveImageContext
+    setActiveImage(null, null)
+  }, [setActiveImage])
 
   return {
     status,
@@ -150,5 +173,6 @@ export function useEnhance() {
     reEnhance,
     reset,
     hasFile,
+    loadFile,
   }
 }
