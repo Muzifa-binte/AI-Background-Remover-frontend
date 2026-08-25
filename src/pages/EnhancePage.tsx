@@ -29,17 +29,57 @@ export default function EnhancePage() {
     reEnhance,
     reset,
     hasFile,
+    loadFile,
   } = useEnhance()
 
-  // ── Pipeline handoff: auto-load if navigated via "Send to…" ────────────
-  const { activeFile } = useActiveImage()
+  // ── Pipeline handoff: auto-load / stage if navigated via "Send to…" ────────────
+  const { activeFile, activePreviewUrl } = useActiveImage()
   useEffect(() => {
-    if (activeFile && !hasFile) {
-      enhance(activeFile)
+    if (activeFile) {
+      const cachedPreset = sessionStorage.getItem('enhance_preset_settings')
+      if (cachedPreset) {
+        sessionStorage.removeItem('enhance_preset_settings')
+        try {
+          const parsed = JSON.parse(cachedPreset)
+          const mergedSettings = { ...settings, ...parsed }
+          Object.entries(parsed).forEach(([key, val]) => {
+            updateSetting(key as any, val)
+          })
+          // Auto-run with preset settings!
+          enhance(activeFile, mergedSettings)
+        } catch (e) {
+          loadFile(activeFile)
+        }
+      } else if (!hasFile) {
+        // Normal staging
+        loadFile(activeFile)
+      }
     }
-    // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activeFile])
+
+  // Listen for AI assistant apply events
+  useEffect(() => {
+    const handlePresetEvent = (e: Event) => {
+      const customEvent = e as CustomEvent
+      if (customEvent.detail?.type === 'apply_enhance') {
+        const parsed = customEvent.detail.data
+        const mergedSettings = { ...settings, ...parsed }
+        Object.entries(parsed).forEach(([key, val]) => {
+          updateSetting(key as any, val)
+        })
+        if (activeFile) {
+          if (hasFile) {
+            reEnhance(mergedSettings)
+          } else {
+            enhance(activeFile, mergedSettings)
+          }
+        }
+      }
+    }
+    window.addEventListener('apply_ai_preset', handlePresetEvent)
+    return () => window.removeEventListener('apply_ai_preset', handlePresetEvent)
+  }, [activeFile, hasFile, settings, updateSetting, enhance, reEnhance])
 
   const isProcessing = status === 'uploading'
   const isDone       = status === 'success' && result !== null && originalUrl !== null
@@ -71,7 +111,31 @@ export default function EnhancePage() {
 
           {/* Upload zone — only when no file yet */}
           {!isDone && !isProcessing && (
-            <UploadZone onFile={enhance} disabled={isProcessing} />
+            activeFile && status === 'idle' ? (
+              <div className="card p-6 flex flex-col items-center gap-4 text-center max-w-lg mx-auto animate-fade-up">
+                <div className="relative w-full overflow-hidden rounded-xl border border-border bg-surface-raised flex items-center justify-center p-4 min-h-[300px]">
+                  {activePreviewUrl && (
+                    <img src={activePreviewUrl} className="max-w-full max-h-[400px] object-contain rounded-xl select-none" alt="Staged target" />
+                  )}
+                </div>
+                <div className="flex gap-3 w-full justify-center">
+                  <button
+                    onClick={reset}
+                    className="btn-ghost text-xs py-2 px-4"
+                  >
+                    Change Image
+                  </button>
+                  <button
+                    onClick={() => enhance(activeFile)}
+                    className="btn-primary text-xs py-2 px-6 font-bold shadow-md"
+                  >
+                    ✨ Enhance Image
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <UploadZone onFile={enhance} disabled={isProcessing} />
+            )
           )}
 
           {/* Processing spinner */}

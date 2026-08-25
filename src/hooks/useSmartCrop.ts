@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { useStudioOutput } from './useStudioOutput'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 import type { Quality } from './useUpload'
 
 export type CropStatus = 'idle' | 'processing' | 'done' | 'error'
@@ -59,6 +60,8 @@ export function useSmartCrop() {
   const [error,       setError]       = useState<string | null>(null)
   const [settings,    setSettings]    = useState<CropSettings>(DEFAULT_CROP_SETTINGS)
 
+  const { setActiveImage } = useActiveImage()
+
   // Store uploaded file so reCrop() doesn't need a re-upload
   const fileRef = useRef<File | null>(null)
   // Separate state flag so React re-renders when a file is loaded/cleared
@@ -104,22 +107,37 @@ export function useSmartCrop() {
     }
   }, [])
 
+  // ── Load file without processing (staging) ──────────────────────────
+  const loadFile = useCallback((file: File) => {
+    fileRef.current = file
+    setHasFile(true)
+    const localUrl = URL.createObjectURL(file)
+    setOriginalUrl(prev => { if (prev) URL.revokeObjectURL(prev); return localUrl })
+  }, [])
+
   // ── First upload: store file + show preview immediately ───────────────
-  const crop = useCallback(async (file: File) => {
+  const crop = useCallback(async (file: File, customSettings?: CropSettings) => {
     fileRef.current = file
     setHasFile(true)
 
     const localUrl = URL.createObjectURL(file)
     setOriginalUrl(prev => { if (prev) URL.revokeObjectURL(prev); return localUrl })
 
-    await _post(file, settings)
-  }, [settings, _post])
+    // Sync with global ActiveImageContext
+    setActiveImage(file, localUrl)
+
+    await _post(file, customSettings || settings)
+  }, [settings, _post, setActiveImage])
 
   // ── Re-crop with updated settings (no re-upload needed) ───────────────
-  const reCrop = useCallback(async () => {
+  const reCrop = useCallback(async (customSettings?: CropSettings | any) => {
     const file = fileRef.current
     if (!file) return
-    await _post(file, settings)
+    const isPreset = customSettings && !customSettings.nativeEvent
+    if (isPreset) {
+      setSettings(prev => ({ ...prev, ...customSettings }))
+    }
+    await _post(file, isPreset ? { ...settings, ...customSettings } : settings)
   }, [settings, _post])
 
   const reset = useCallback(() => {
@@ -129,12 +147,16 @@ export function useSmartCrop() {
     setOriginalUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
     fileRef.current = null
     setHasFile(false)
-  }, [])
+
+    // Sync with global ActiveImageContext
+    setActiveImage(null, null)
+  }, [setActiveImage])
 
   return {
     status, result, originalUrl, error,
     settings, updateSetting, resetSettings,
     crop, reCrop, reset,
     hasFile,
+    loadFile,
   }
 }

@@ -4,6 +4,8 @@ import type {
   CaptionStyle,
   CaptionsResponse,
   BackgroundSuggestionsResponse,
+  AdvancedAnalysis,
+  BatchAdvancedAnalysisResponse,
 } from '../types'
 
 export const imageService = {
@@ -34,6 +36,30 @@ export const imageService = {
     const formData = new FormData()
     formData.append('file', file)
     const { data } = await apiClient.post<BackgroundSuggestionsResponse>('/api/image/suggestions', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return data
+  },
+
+  async analyzeAdvanced(file: File): Promise<AdvancedAnalysis> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await apiClient.post<AdvancedAnalysis>('/api/image/analyze-advanced', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return data
+  },
+
+  async analyzeAdvancedBatch(files: File[]): Promise<BatchAdvancedAnalysisResponse> {
+    const formData = new FormData()
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+    const { data } = await apiClient.post<BatchAdvancedAnalysisResponse>('/api/image/analyze-advanced-batch', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

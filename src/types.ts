@@ -5,12 +5,14 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   thinking?: string | null
+  action?: any
   timestamp: number
 }
 
 export interface ChatResponse {
   reply: string
   thinking?: string | null
+  action?: any
 }
 
 // ── Image Analysis ───────────────────────────────────────────────────────────
@@ -46,4 +48,70 @@ export interface CaptionsResponse {
 
 export interface BackgroundSuggestionsResponse {
   suggestions: string[]
+}
+
+// ── Advanced Analysis ──────────────────────────────────────────────────────────
+
+export interface DetectedObject {
+  label: string
+  box_2d: [number, number, number, number]
+  confidence: number
+}
+
+export interface ColorPaletteItem {
+  hex: string
+  name: string
+  percentage: number
+  text_color: string
+  use_case: string
+}
+
+export interface StyleTransferRecommendation {
+  style: string
+  description: string
+  prompts: string
+}
+
+export interface CompositionAnalysis {
+  rule_of_thirds: string
+  leading_lines: string
+  balance: string
+  crop_recommendation: string
+}
+
+export interface OptimalEnhancementSettings {
+  brightness: number
+  contrast: number
+  saturation: number
+  sharpness: number
+  denoise: boolean
+  auto_wb: boolean
+  denoise_strength: number
+}
+
+export interface SuggestedCropSettings {
+  aspect_ratio: string
+  padding_pct: number
+}
+
+export interface AdvancedAnalysis {
+  object_detection: DetectedObject[]
+  color_palette: ColorPaletteItem[]
+  style_transfer: StyleTransferRecommendation[]
+  composition: CompositionAnalysis
+  suggested_backgrounds: string[]
+  optimal_enhancement: OptimalEnhancementSettings
+  suggested_crop: SuggestedCropSettings
+  suggested_filename: string
+}
+
+export interface BatchAdvancedAnalysisItem {
+  filename: string
+  status: 'success' | 'error'
+  analysis?: AdvancedAnalysis
+  error?: string
+}
+
+export interface BatchAdvancedAnalysisResponse {
+  results: BatchAdvancedAnalysisItem[]
 }

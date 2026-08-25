@@ -119,24 +119,25 @@ export function useReplaceBg() {
 
   // ── Step 2: replace background ────────────────────────────────────────
 
-  const replaceBackground = useCallback(async () => {
+  const replaceBackground = useCallback(async (customSettings?: BgSettings | any) => {
     if (!removeResult) return
 
     setReplaceStatus('replacing')
     setReplaceResult(null)
     setReplaceError(null)
 
-    // 'library' is an internal UI-only tab — the API only accepts 'image'.
-    // When the user picked a library preset we have a URL (libraryUrl) but no
-    // File object.  Fetch the URL as a Blob and wrap it in a File so the
-    // backend receives a real multipart file upload.
-    const apiType = settings.bgType === 'library' ? 'image' : settings.bgType
+    const isPreset = customSettings && !customSettings.nativeEvent
+    if (isPreset) {
+      setSettings(prev => ({ ...prev, ...customSettings }))
+    }
+    const activeSettings = isPreset ? { ...settings, ...customSettings } : settings
+    const apiType = activeSettings.bgType === 'library' ? 'image' : activeSettings.bgType
 
-    let bgFile = settings.bgFile
+    let bgFile = activeSettings.bgFile
 
-    if (settings.bgType === 'library' && settings.libraryUrl && !bgFile) {
+    if (activeSettings.bgType === 'library' && activeSettings.libraryUrl && !bgFile) {
       try {
-        const resp = await fetch(settings.libraryUrl)
+        const resp = await fetch(activeSettings.libraryUrl)
         const blob = await resp.blob()
         const ext  = blob.type.split('/')[1] || 'jpg'
         bgFile = new File([blob], `library_bg.${ext}`, { type: blob.type })
@@ -150,12 +151,12 @@ export function useReplaceBg() {
     const formData = new FormData()
     formData.append('fg_filename',    removeResult.output_filename)
     formData.append('bg_type',        apiType)
-    formData.append('solid_color',    settings.solidColor)
-    formData.append('gradient_start', settings.gradientStart)
-    formData.append('gradient_end',   settings.gradientEnd)
-    formData.append('gradient_dir',   settings.gradientDir)
-    formData.append('bg_fit',         settings.bgFit)
-    if ((settings.bgType === 'image' || settings.bgType === 'library') && bgFile) {
+    formData.append('solid_color',    activeSettings.solidColor)
+    formData.append('gradient_start', activeSettings.gradientStart)
+    formData.append('gradient_end',   activeSettings.gradientEnd)
+    formData.append('gradient_dir',   activeSettings.gradientDir)
+    formData.append('bg_fit',         activeSettings.bgFit)
+    if ((activeSettings.bgType === 'image' || activeSettings.bgType === 'library') && bgFile) {
       formData.append('bg_file', bgFile)
     }
 
@@ -180,7 +181,7 @@ export function useReplaceBg() {
       setReplaceError(msg)
       setReplaceStatus('idle')
     }
-  }, [removeResult, settings])
+  }, [removeResult, settings, registerOutput])
 
   // ── Step-2-only reset — keeps removed foreground, clears result ───────
 
