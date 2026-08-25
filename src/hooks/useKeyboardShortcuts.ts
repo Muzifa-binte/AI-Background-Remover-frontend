@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useThemeSettings } from '../contexts/ThemeSettingsContext';
 
 export interface ShortcutItem {
@@ -18,11 +18,12 @@ export const SHORTCUT_LIST: ShortcutItem[] = [
   { key: '5', description: 'Go to Smart Crop', category: 'Navigation' },
   { key: '6', description: 'Go to Batch Processor', category: 'Navigation' },
   { key: '7', description: 'Go to History Gallery', category: 'Navigation' },
-  { key: 'Esc', description: 'Close dialogs or clear current view', category: 'Actions' },
+  { key: 'Esc', description: 'Go to Login / Sign up page', category: 'Navigation' },
 ];
 
 export function useKeyboardShortcuts() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isShortcutsOpen, setIsShortcutsOpen } = useThemeSettings();
 
   useEffect(() => {
@@ -68,8 +69,14 @@ export function useKeyboardShortcuts() {
             navigate('/history');
             break;
           case 'Escape':
+            e.preventDefault();
             if (isShortcutsOpen) {
               setIsShortcutsOpen(false);
+            }
+            if (location.pathname === '/login') {
+              navigate('/register');
+            } else {
+              navigate('/login');
             }
             break;
         }
@@ -78,5 +85,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate, isShortcutsOpen, setIsShortcutsOpen]);
+  }, [navigate, location.pathname, isShortcutsOpen, setIsShortcutsOpen]);
 }
