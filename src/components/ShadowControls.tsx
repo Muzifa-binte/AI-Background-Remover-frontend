@@ -1,4 +1,5 @@
-import React from 'react'
+import CustomSlider from './CustomSlider';
+import EnhancedColorPicker from './EnhancedColorPicker';
 
 export interface ShadowSettings {
   enabled: boolean;
@@ -21,21 +22,25 @@ export default function ShadowControls({ settings, onChange, onReset, disabled }
   const isShadow = settings.type === 'shadow';
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 p-5 rounded-2xl bg-surface border border-border shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-primary">Shadow &amp; Glow</h3>
+        <div>
+          <h3 className="text-sm font-bold text-primary">Shadow &amp; Glow Generator</h3>
+          <p className="text-[11px] text-muted">Add realistic depth or neon edge lighting</p>
+        </div>
         <button
+          type="button"
           onClick={onReset}
           disabled={disabled}
-          className="text-xs text-magenta hover:text-magenta-hover disabled:opacity-50 transition-colors"
+          className="text-xs font-semibold text-magenta hover:underline disabled:opacity-50 transition-colors"
         >
           Reset
         </button>
       </div>
 
       {/* Enable Toggle */}
-      <label className="flex items-center gap-3 cursor-pointer group">
+      <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-xl bg-surface-raised border border-border">
         <div className="relative">
           <input
             type="checkbox"
@@ -44,32 +49,34 @@ export default function ShadowControls({ settings, onChange, onReset, disabled }
             onChange={(e) => onChange({ enabled: e.target.checked })}
             disabled={disabled}
           />
-          <div className="w-10 h-5 bg-surface-raised rounded-full border border-border peer-checked:bg-magenta peer-checked:border-magenta transition-colors"></div>
+          <div className="w-10 h-5 bg-border rounded-full peer-checked:bg-magenta transition-colors"></div>
           <div className="absolute left-[2px] top-[2px] bg-white w-4 h-4 rounded-full transition-transform peer-checked:translate-x-5 shadow-sm"></div>
         </div>
-        <span className="text-sm font-medium text-secondary group-hover:text-primary transition-colors">
-          Enable Effect
+        <span className="text-xs font-bold text-primary select-none">
+          {settings.enabled ? 'Effect Active' : 'Enable Shadow / Glow'}
         </span>
       </label>
 
       {settings.enabled && (
-        <div className="flex flex-col gap-4 animate-fade-up">
+        <div className="flex flex-col gap-5 animate-fade-up">
           {/* Type Switcher */}
-          <div className="flex p-1 bg-surface-raised rounded-lg border border-border">
+          <div className="flex p-1 bg-surface-raised rounded-xl border border-border">
             <button
+              type="button"
               onClick={() => onChange({ type: 'shadow', offsetX: 10, offsetY: 10, blur: 15 })}
               disabled={disabled}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                isShadow ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-secondary'
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                isShadow ? 'bg-surface text-magenta shadow-xs' : 'text-muted hover:text-secondary'
               }`}
             >
               Drop Shadow
             </button>
             <button
+              type="button"
               onClick={() => onChange({ type: 'glow', offsetX: 0, offsetY: 0, blur: 20 })}
               disabled={disabled}
-              className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                !isShadow ? 'bg-surface text-primary shadow-sm' : 'text-muted hover:text-secondary'
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                !isShadow ? 'bg-surface text-magenta shadow-xs' : 'text-muted hover:text-secondary'
               }`}
             >
               Outer Glow
@@ -77,92 +84,63 @@ export default function ShadowControls({ settings, onChange, onReset, disabled }
           </div>
 
           {/* Color Picker */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-secondary">Color</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={settings.color}
-                onChange={(e) => onChange({ color: e.target.value })}
-                disabled={disabled}
-                className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0"
-              />
-              <span className="text-xs text-muted uppercase">{settings.color}</span>
-            </div>
-          </div>
+          <EnhancedColorPicker
+            label="Lighting Color"
+            color={settings.color}
+            onChange={(color) => onChange({ color })}
+          />
 
-          {/* Opacity Slider */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-secondary">Opacity</label>
-              <span className="text-xs text-muted">{settings.opacity}%</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={settings.opacity}
-              onChange={(e) => onChange({ opacity: parseInt(e.target.value) })}
-              disabled={disabled}
-              className="w-full accent-magenta"
-            />
-          </div>
+          {/* Sliders */}
+          <CustomSlider
+            label="Intensity (Opacity)"
+            value={settings.opacity}
+            min={0}
+            max={100}
+            unit="%"
+            presets={[25, 50, 75, 100]}
+            onChange={(opacity) => onChange({ opacity })}
+            disabled={disabled}
+          />
 
-          {/* Blur Slider */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-secondary">Size (Blur)</label>
-              <span className="text-xs text-muted">{settings.blur}px</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={settings.blur}
-              onChange={(e) => onChange({ blur: parseInt(e.target.value) })}
-              disabled={disabled}
-              className="w-full accent-magenta"
-            />
-          </div>
+          <CustomSlider
+            label="Softness / Blur Radius"
+            value={settings.blur}
+            min={0}
+            max={100}
+            unit="px"
+            presets={[10, 25, 50, 75]}
+            onChange={(blur) => onChange({ blur })}
+            disabled={disabled}
+          />
 
-          {/* Offsets — shadow only */}
+          {/* Offsets (Drop shadow only) */}
           {isShadow && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-secondary">Distance X</label>
-                  <span className="text-xs text-muted">{settings.offsetX}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={settings.offsetX}
-                  onChange={(e) => onChange({ offsetX: parseInt(e.target.value) })}
-                  disabled={disabled}
-                  className="w-full accent-magenta"
-                />
-              </div>
+            <div className="space-y-4 pt-2 border-t border-border">
+              <CustomSlider
+                label="Horizontal Distance (X)"
+                value={settings.offsetX}
+                min={-100}
+                max={100}
+                unit="px"
+                presets={[-20, 0, 20]}
+                onChange={(offsetX) => onChange({ offsetX })}
+                disabled={disabled}
+              />
 
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-secondary">Distance Y</label>
-                  <span className="text-xs text-muted">{settings.offsetY}px</span>
-                </div>
-                <input
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={settings.offsetY}
-                  onChange={(e) => onChange({ offsetY: parseInt(e.target.value) })}
-                  disabled={disabled}
-                  className="w-full accent-magenta"
-                />
-              </div>
-            </>
+              <CustomSlider
+                label="Vertical Distance (Y)"
+                value={settings.offsetY}
+                min={-100}
+                max={100}
+                unit="px"
+                presets={[-20, 0, 20]}
+                onChange={(offsetY) => onChange({ offsetY })}
+                disabled={disabled}
+              />
+            </div>
           )}
         </div>
       )}
     </div>
-  )
+  );
 }

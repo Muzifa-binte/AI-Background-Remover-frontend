@@ -3,32 +3,40 @@
    Concept: "Darkroom / Lightbox"
    Signature motif: the alpha-transparency checkerboard
 
-   Light mode: warm paper tones with magenta + teal accents
-   Dark mode:  pure black with gold/orange premium accents
+   Light mode: warm paper tones with vibrant accents
+   Dark mode:  pure black with customizable luxury accents
+   Accents:    gold (default), cyber, emerald, sapphire, sunset
    ========================================================= */
 
 :root {
   /* ---------- Surfaces ---------- */
-  --bg-page:           #F3F4F1;
+  --bg-page:           #F4F4F1;
   --bg-surface:        #FFFFFF;
-  --bg-surface-raised: #F8F8F6;
+  --bg-surface-raised: #FAF9F6;
+  --bg-surface-glass:  rgba(255, 255, 255, 0.75);
 
   /* ---------- Text ---------- */
-  --text-primary:   #14161A;
-  --text-secondary: #5F5E5A;
-  --text-muted:     #888780;
+  --text-primary:   #121316;
+  --text-secondary: #585752;
+  --text-muted:     #8C8B84;
 
   /* ---------- Borders ---------- */
-  --border:        #E3E2DC;
-  --border-strong: #C9C8C1;
+  --border:        #E2E0D8;
+  --border-strong: #C8C6BD;
 
-  /* ---------- Accents (Light mode) ---------- */
+  /* ---------- Default Accents (Light mode: Magenta/Teal) ---------- */
+  --accent-primary:       #E8336D;
+  --accent-primary-hover: #D12A5F;
+  --accent-primary-glow:  rgba(232, 51, 109, 0.25);
+
+  --accent-secondary:       #2FBFB0;
+  --accent-secondary-hover: #26A99B;
+
   --accent-magenta:       #E8336D;
   --accent-magenta-hover: #D12A5F;
   --accent-teal:          #2FBFB0;
   --accent-teal-hover:    #26A99B;
 
-  /* ---------- Gold (inactive in light mode, defined for compatibility) ---------- */
   --accent-gold:          #F59E0B;
   --accent-gold-hover:    #D97706;
   --accent-gold-muted:    #FDE68A;
@@ -38,16 +46,17 @@
   /* ---------- Semantic ---------- */
   --color-danger:  #E24B4A;
   --color-warning: #EF9F27;
-  --color-success: var(--accent-teal);
+  --color-success: #10B981;
+  --color-info:    #3B82F6;
 
   /* ---------- Checkerboard motif ---------- */
   --checker-tile-1: #FFFFFF;
-  --checker-tile-2: #E7E7E4;
+  --checker-tile-2: #E5E5E0;
   --checker-size:   20px;
 
   /* ---------- Typography ---------- */
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body:    'Inter', sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono:    'IBM Plex Mono', monospace;
 
   /* ---------- Radius ---------- */
@@ -57,69 +66,153 @@
   --radius-xl: 24px;
 
   /* ---------- Shadows ---------- */
-  --shadow-focus:   0 0 0 2px var(--accent-magenta);
-  --shadow-sm:      0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md:      0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
-  --shadow-lg:      0 10px 30px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.08);
-  --shadow-glow:    0 0 20px rgba(232,51,109,0.25);
+  --shadow-focus:   0 0 0 2px var(--accent-primary);
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:      0 4px 14px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:      0 12px 36px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-glow:    0 0 24px var(--accent-primary-glow);
+  --shadow-glow-sm: 0 0 12px var(--accent-primary-glow);
 
   /* ---------- Gradients ---------- */
-  --gradient-hero:    linear-gradient(135deg, #fdf4f7 0%, #f3f4f1 50%, #f0faf9 100%);
-  --gradient-brand:   linear-gradient(135deg, var(--accent-magenta) 0%, var(--accent-teal) 100%);
+  --gradient-hero:    linear-gradient(135deg, #fdf3f6 0%, #f4f4f1 50%, #effaf8 100%);
+  --gradient-brand:   linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  --dynamic-glow-color: rgba(232, 51, 109, 0.15);
 }
 
 /* ============================================================
-   Dark mode — Black + Gold/Orange premium palette
-   Activated by data-theme="dark" on <html>
+   Dark mode — Pure Black foundation
    ============================================================ */
 [data-theme='dark'] {
   /* ---------- Surfaces ---------- */
-  --bg-page:           #080808;   /* true black */
-  --bg-surface:        #111111;   /* near-black cards */
-  --bg-surface-raised: #1A1A1A;   /* raised panels */
+  --bg-page:           #080809;   /* true black */
+  --bg-surface:        #121214;   /* dark card */
+  --bg-surface-raised: #1A1A1E;   /* elevated card */
+  --bg-surface-glass:  rgba(18, 18, 20, 0.75);
 
   /* ---------- Text ---------- */
-  --text-primary:   #F5F0E8;      /* warm white */
-  --text-secondary: #A8A090;      /* warm grey */
-  --text-muted:     #5C5648;      /* dark warm grey */
+  --text-primary:   #F7F6F2;
+  --text-secondary: #AAA79F;
+  --text-muted:     #636056;
 
   /* ---------- Borders ---------- */
-  --border:        #2A2418;       /* dark gold-tinted border */
-  --border-strong: #3D3520;       /* stronger gold-tinted border */
+  --border:        #262520;
+  --border-strong: #3D3B33;
 
-  /* ---------- Gold/Orange accents (primary in dark mode) ---------- */
-  --accent-gold:          #F59E0B;   /* amber gold */
-  --accent-gold-hover:    #FBBF24;   /* brighter gold on hover */
-  --accent-gold-muted:    #78490A;   /* dark gold for subtle fills */
-  --accent-orange:        #F97316;   /* vivid orange */
-  --accent-orange-hover:  #FB923C;   /* lighter orange on hover */
+  /* ---------- Default Gold Accent in Dark Mode ---------- */
+  --accent-primary:       #F59E0B;
+  --accent-primary-hover: #FBBF24;
+  --accent-primary-glow:  rgba(245, 158, 11, 0.25);
 
-  /* ---------- Magenta/Teal (secondary in dark mode) ---------- */
-  --accent-magenta:       #F59E0B;   /* remapped to gold for consistency */
+  --accent-secondary:       #F97316;
+  --accent-secondary-hover: #FB923C;
+
+  --accent-magenta:       #F59E0B;
   --accent-magenta-hover: #FBBF24;
-  --accent-teal:          #F97316;   /* remapped to orange for consistency */
+  --accent-teal:          #F97316;
   --accent-teal-hover:    #FB923C;
+
+  --accent-gold:          #F59E0B;
+  --accent-gold-hover:    #FBBF24;
+  --accent-gold-muted:    #78490A;
+  --accent-orange:        #F97316;
+  --accent-orange-hover:  #FB923C;
 
   /* ---------- Semantic ---------- */
   --color-danger:  #F87171;
   --color-warning: #FBBF24;
   --color-success: #34D399;
+  --color-info:    #60A5FA;
 
   /* ---------- Checkerboard motif ---------- */
-  --checker-tile-1: #111111;
-  --checker-tile-2: #1A1A1A;
+  --checker-tile-1: #101012;
+  --checker-tile-2: #18181C;
 
-  /* ---------- Shadows (gold glow in dark mode) ---------- */
-  --shadow-focus:   0 0 0 2px var(--accent-gold);
-  --shadow-sm:      0 1px 3px rgba(0,0,0,0.5);
-  --shadow-md:      0 4px 12px rgba(0,0,0,0.6), 0 0 0 1px rgba(245,158,11,0.06);
-  --shadow-lg:      0 10px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(245,158,11,0.08);
-  --shadow-glow:    0 0 30px rgba(245,158,11,0.20), 0 0 60px rgba(245,158,11,0.10);
-  --shadow-glow-sm: 0 0 12px rgba(245,158,11,0.30);
+  /* ---------- Shadows ---------- */
+  --shadow-focus:   0 0 0 2px var(--accent-primary);
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.6);
+  --shadow-md:      0 4px 16px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-lg:      0 12px 48px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.06);
+  --shadow-glow:    0 0 35px var(--accent-primary-glow), 0 0 70px rgba(0,0,0,0.5);
+  --shadow-glow-sm: 0 0 14px var(--accent-primary-glow);
 
   /* ---------- Gradients ---------- */
-  --gradient-hero:    linear-gradient(135deg, #0f0d09 0%, #080808 50%, #0a0d0c 100%);
-  --gradient-brand:   linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-orange) 100%);
+  --gradient-hero:    radial-gradient(ellipse at 50% -20%, rgba(245,158,11,0.08), transparent 70%), linear-gradient(180deg, #0f0f12 0%, #080809 100%);
+  --gradient-brand:   linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  --dynamic-glow-color: rgba(245, 158, 11, 0.18);
+}
+
+/* ============================================================
+   Accent Color Themes
+   ============================================================ */
+
+/* --- Cyber Neon Theme (Magenta / Violet) --- */
+[data-accent='cyber'] {
+  --accent-primary:       #EC4899;
+  --accent-primary-hover: #F472B6;
+  --accent-primary-glow:  rgba(236, 72, 153, 0.30);
+  --accent-secondary:       #8B5CF6;
+  --accent-secondary-hover: #A78BFA;
+  --accent-magenta:       #EC4899;
+  --accent-magenta-hover: #F472B6;
+  --accent-teal:          #8B5CF6;
+  --accent-teal-hover:    #A78BFA;
+  --gradient-brand:       linear-gradient(135deg, #EC4899 0%, #8B5CF6 100%);
+}
+
+/* --- Emerald Mint Theme (Teal / Emerald) --- */
+[data-accent='emerald'] {
+  --accent-primary:       #10B981;
+  --accent-primary-hover: #34D399;
+  --accent-primary-glow:  rgba(16, 185, 129, 0.30);
+  --accent-secondary:       #06B6D4;
+  --accent-secondary-hover: #22D3EE;
+  --accent-magenta:       #10B981;
+  --accent-magenta-hover: #34D399;
+  --accent-teal:          #06B6D4;
+  --accent-teal-hover:    #22D3EE;
+  --gradient-brand:       linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+}
+
+/* --- Sapphire Electric Theme (Indigo / Blue) --- */
+[data-accent='sapphire'] {
+  --accent-primary:       #3B82F6;
+  --accent-primary-hover: #60A5FA;
+  --accent-primary-glow:  rgba(59, 130, 246, 0.30);
+  --accent-secondary:       #6366F1;
+  --accent-secondary-hover: #818CF8;
+  --accent-magenta:       #3B82F6;
+  --accent-magenta-hover: #60A5FA;
+  --accent-teal:          #6366F1;
+  --accent-teal-hover:    #818CF8;
+  --gradient-brand:       linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+}
+
+/* --- Sunset Coral Theme (Orange / Rose) --- */
+[data-accent='sunset'] {
+  --accent-primary:       #F97316;
+  --accent-primary-hover: #FB923C;
+  --accent-primary-glow:  rgba(249, 115, 22, 0.30);
+  --accent-secondary:       #F43F5E;
+  --accent-secondary-hover: #FB7185;
+  --accent-magenta:       #F97316;
+  --accent-magenta-hover: #FB923C;
+  --accent-teal:          #F43F5E;
+  --accent-teal-hover:    #FB7185;
+  --gradient-brand:       linear-gradient(135deg, #F97316 0%, #F43F5E 100%);
+}
+
+/* --- Amber Gold (Explicit) --- */
+[data-accent='gold'] {
+  --accent-primary:       #F59E0B;
+  --accent-primary-hover: #FBBF24;
+  --accent-primary-glow:  rgba(245, 158, 11, 0.30);
+  --accent-secondary:       #F97316;
+  --accent-secondary-hover: #FB923C;
+  --accent-magenta:       #F59E0B;
+  --accent-magenta-hover: #FBBF24;
+  --accent-teal:          #F97316;
+  --accent-teal-hover:    #FB923C;
+  --gradient-brand:       linear-gradient(135deg, #F59E0B 0%, #F97316 100%);
 }
 
 /* ============================================================
@@ -141,14 +234,35 @@
 }
 
 /* ============================================================
-   Glass surface utility (dark mode navbar / modals)
+   Glassmorphism Surfaces
    ============================================================ */
 .glass {
-  backdrop-filter: blur(12px) saturate(1.5);
-  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
 }
 
-[data-theme='dark'] .glass {
-  background-color: rgba(8, 8, 8, 0.85);
-  border-color: rgba(245, 158, 11, 0.12);
+.glass-modal {
+  background-color: var(--bg-surface-glass);
+  backdrop-filter: blur(20px) saturate(1.8);
+  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[data-theme='dark'] .glass-modal {
+  background-color: rgba(14, 14, 16, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.glass-panel {
+  background-color: var(--bg-surface-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+[data-theme='dark'] .glass-panel {
+  background-color: rgba(18, 18, 22, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }

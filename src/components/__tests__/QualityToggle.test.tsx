@@ -1,7 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import QualityToggle from '../QualityToggle'
-import type { Quality } from '../../hooks/useUpload'
 
 describe('QualityToggle', () => {
   it('renders all three quality options', () => {
