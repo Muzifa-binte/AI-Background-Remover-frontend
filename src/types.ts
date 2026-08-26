@@ -23,6 +23,13 @@ export interface ImageAnalysis {
   background_description: string
   suggested_use: string
   editing_recommendations: string[]
+  quality_score?: number
+  quality_rating?: string
+  edge_score?: number
+  lighting_score?: number
+  sharpness_score?: number
+  isolation_score?: number
+  color_palette?: ColorPaletteItem[]
 }
 
 // ── Caption ──────────────────────────────────────────────────────────────────
