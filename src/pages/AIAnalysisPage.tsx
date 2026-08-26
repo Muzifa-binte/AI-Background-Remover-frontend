@@ -5,28 +5,14 @@ import { imageService } from '../services/imageService'
 import { useToast } from '../hooks/useToast'
 import UploadZone from '../components/UploadZone'
 import SendToMenu from '../components/SendToMenu'
+import { getBackgroundPreviewUrls } from '../components/ChatbotWidget'
 import type { AdvancedAnalysis, BatchAdvancedAnalysisItem } from '../types'
 
 export default function AIAnalysisPage() {
   const { activeFile, activePreviewUrl, setActiveImage, setOutput } = useActiveImage()
   const navigate = useNavigate()
 
-  const findLibraryBgByName = (name: string): string => {
-    const clean = name.toLowerCase()
-    if (clean.includes('white') || clean.includes('studio')) return 'https://images.unsplash.com/photo-1553356084-58ef4a67b2a7?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('grey') || clean.includes('gray')) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('marble')) return 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('beige')) return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('concrete') || clean.includes('dark')) return 'https://images.unsplash.com/photo-1604076913837-52ab5629fde9?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('wood')) return 'https://images.unsplash.com/photo-1473186578172-c141e6798cf4?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('forest') || clean.includes('green') || clean.includes('nature')) return 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('mountain') || clean.includes('mist')) return 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('sky') || clean.includes('blue')) return 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('beach') || clean.includes('sea') || clean.includes('ocean')) return 'https://images.unsplash.com/photo-1534274988757-a28bf1a57c17?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('office') || clean.includes('interior')) return 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&h=900&fit=crop&q=85'
-    if (clean.includes('street') || clean.includes('night') || clean.includes('cyberpunk')) return 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1200&h=900&fit=crop&q=85'
-    return 'https://images.unsplash.com/photo-1550684376-efcomment-a-blur?w=1200&h=900&fit=crop&q=85'
-  }
+
 
   const applyBackgroundPreset = (type: 'solid' | 'library', value: string) => {
     const preset = {
@@ -35,6 +21,13 @@ export default function AIAnalysisPage() {
       libraryUrl: type === 'library' ? value : null,
     }
     sessionStorage.setItem('bg_preset_settings', JSON.stringify(preset))
+    sessionStorage.setItem('bg_preset_auto_apply', 'true')
+    showToast(`✨ Applying background preset...`, 'info')
+    window.dispatchEvent(
+      new CustomEvent('apply_ai_preset', {
+        detail: { type: 'apply_bg', data: preset },
+      })
+    )
     if (file && previewUrl) {
       setActiveImage(file, previewUrl)
       navigate('/replace-bg')
@@ -507,31 +500,45 @@ export default function AIAnalysisPage() {
                   <div className="card p-5 flex flex-col gap-3">
                     <div>
                       <h3 className="text-sm font-semibold uppercase tracking-wider text-muted mb-0.5">Suggested Backgrounds</h3>
-                      <p className="text-xs text-muted">Directly apply solid colors or scenery backdrops to this image.</p>
+                      <p className="text-xs text-muted">Directly apply AI generated photo backdrops or colors to this image.</p>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 mt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                       {analysis.suggested_backgrounds.map((bg, idx) => {
-                        const isColor = bg.startsWith('#')
+                        const previewInfo = getBackgroundPreviewUrls(bg)
                         return (
-                          <button
+                          <div
                             key={idx}
                             onClick={() => {
-                              if (isColor) {
-                                applyBackgroundPreset('solid', bg)
+                              if (previewInfo.isColor) {
+                                applyBackgroundPreset('solid', previewInfo.color!)
                               } else {
-                                const matchedUrl = findLibraryBgByName(bg)
-                                applyBackgroundPreset('library', matchedUrl)
+                                applyBackgroundPreset('library', previewInfo.fullUrl!)
                               }
                             }}
-                            className="p-2.5 bg-surface-raised hover:bg-surface border border-border hover:border-border-strong rounded-xl text-left text-xs font-bold flex items-center gap-2 transition-all group/btn"
+                            className="p-3 bg-surface-raised hover:bg-surface border border-border hover:border-magenta/60 rounded-2xl text-left flex gap-3 items-center transition-all group/btn cursor-pointer shadow-sm hover:shadow-md"
                           >
-                            {isColor ? (
-                              <span className="w-5 h-5 rounded border border-black/10 shrink-0 shadow-sm" style={{ backgroundColor: bg }} />
-                            ) : (
-                              <span className="shrink-0 text-base">🖼️</span>
-                            )}
-                            <span className="truncate group-hover/btn:text-magenta transition-colors">{bg}</span>
-                          </button>
+                            <div className="w-16 h-14 rounded-xl overflow-hidden bg-surface border border-border shrink-0 relative flex items-center justify-center">
+                              {previewInfo.isColor ? (
+                                <div className="w-full h-full" style={{ backgroundColor: previewInfo.color! }} />
+                              ) : (
+                                <img
+                                  src={previewInfo.thumbUrl!}
+                                  alt={bg}
+                                  className="w-full h-full object-cover group-hover/btn:scale-105 transition-transform"
+                                  loading="lazy"
+                                />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-primary truncate group-hover/btn:text-magenta transition-colors">{bg}</p>
+                              <button
+                                type="button"
+                                className="mt-1.5 text-[10px] font-bold text-magenta group-hover/btn:underline flex items-center gap-1"
+                              >
+                                <span>✨</span> Apply Background
+                              </button>
+                            </div>
+                          </div>
                         )
                       })}
                     </div>

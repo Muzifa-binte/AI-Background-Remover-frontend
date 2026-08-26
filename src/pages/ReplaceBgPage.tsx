@@ -156,6 +156,11 @@ export default function ReplaceBgPage() {
       const customEvent = e as CustomEvent
       if (customEvent.detail?.type === 'apply_bg') {
         const parsed = customEvent.detail.data
+        if (parsed) {
+          Object.entries(parsed).forEach(([key, val]) => {
+            updateSetting(key as any, val)
+          })
+        }
         if (activeFile) {
           if (removeStatus === 'removed' && removeResult) {
             replaceBackground(parsed)
@@ -168,7 +173,7 @@ export default function ReplaceBgPage() {
     }
     window.addEventListener('apply_ai_preset', handlePresetEvent)
     return () => window.removeEventListener('apply_ai_preset', handlePresetEvent)
-  }, [activeFile, removeStatus, removeResult, replaceBackground, removeBackground])
+  }, [activeFile, removeStatus, removeResult, replaceBackground, removeBackground, updateSetting])
 
   const isRemoving  = removeStatus  === 'removing'
   const isReplacing = replaceStatus === 'replacing'
