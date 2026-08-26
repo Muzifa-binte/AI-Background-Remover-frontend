@@ -237,6 +237,256 @@ const MiniUploader: React.FC<MiniUploaderProps> = ({ file, previewUrl, onUpload,
   )
 }
 
+// ─── Curated High-Definition Backdrop Library & Matcher ─────────────────────
+
+const BACKDROP_PHOTO_MAP: { keywords: string[]; id: string }[] = [
+  { keywords: ['terracotta', 'clay', 'warm wall', 'brick', 'earthen', 'adobe', 'rustic wall', 'orange wall'], id: '1596178065887-1198b6148b2b' },
+  { keywords: ['rainforest', 'jungle', 'canopy', 'amazon', 'palm', 'greenery', 'tropical leaves', 'botanical'], id: '1511497584788-87676104235f' },
+  { keywords: ['indigo', 'navy', 'dark blue', 'matte studio', 'deep blue', 'midnight', 'denim'], id: '1550684848-fac1c5b4e853' },
+  { keywords: ['hibiscus', 'flower', 'garden', 'blossom', 'floral', 'bloom', 'petal', 'rose'], id: '1508746829417-e6f548d8d6ed' },
+  { keywords: ['studio', 'soft white', 'clean wall', 'minimalist', 'empty room', 'interior'], id: '1553356084-58ef4a67b2a7' },
+  { keywords: ['grey', 'gray', 'concrete wall', 'cement', 'neutral', 'slate'], id: '1618005182384-a83a8bd57fbe' },
+  { keywords: ['marble', 'granite', 'stone', 'quartz', 'luxury surface', 'countertop'], id: '1558618666-fcd25c85cd64' },
+  { keywords: ['beige', 'sand', 'linen', 'warm texture', 'plaster', 'cream'], id: '1507003211169-0a1dd7228f2d' },
+  { keywords: ['dark', 'black concrete', 'charcoal', 'shadow', 'night'], id: '1604076913837-52ab5629fde9' },
+  { keywords: ['wood', 'timber', 'wooden', 'plank', 'oak', 'rustic'], id: '1473186578172-c141e6798cf4' },
+  { keywords: ['forest', 'pine', 'nature', 'woods', 'evergreen', 'trees'], id: '1441974231531-c6227db76b6e' },
+  { keywords: ['mist', 'mountain', 'fog', 'alpine', 'haze', 'peaks'], id: '1506905925346-21bda4d32df4' },
+  { keywords: ['sky', 'clouds', 'sunny', 'sunlit', 'daylight', 'azure'], id: '1500534314209-a25ddb2bd429' },
+  { keywords: ['autumn', 'leaves', 'fall', 'orange leaves', 'maple'], id: '1448375240586-882707db888b' },
+  { keywords: ['meadow', 'grass', 'field', 'pasture', 'lawn', 'sunlit meadow'], id: '1469474968028-56623f02e42e' },
+  { keywords: ['beach', 'sea', 'ocean', 'coast', 'shore', 'tropical sand', 'water'], id: '1507525428034-b723cf961d3e' },
+  { keywords: ['sunset', 'sunrise', 'dusk', 'golden hour', 'horizon', 'dawn'], id: '1470770841072-f978cf4d019e' },
+  { keywords: ['purple', 'violet', 'magenta', 'fluid', 'abstract purple'], id: '1557672172-298e090bd0f1' },
+  { keywords: ['blue swirl', 'fluid blue', 'wave', 'acrylic', 'liquid'], id: '1567359781514-3b964e2b04d6' },
+  { keywords: ['starry', 'space', 'galaxy', 'cosmos', 'night sky', 'stars'], id: '1519681393784-d120267933ba' },
+  { keywords: ['bokeh', 'lights', 'blur', 'glimmer', 'sparkle'], id: '1550684376-ef124803565e' },
+  { keywords: ['gold', 'golden', 'amber', 'warm glow', 'shimmer'], id: '1543158181-e6f9f6712055' },
+  { keywords: ['city', 'skyline', 'urban', 'metropolis', 'downtown', 'architecture'], id: '1477959858617-67f85cf4f1df' },
+  { keywords: ['street', 'neon', 'cyberpunk', 'night city', 'glow'], id: '1513635269975-59663e0ac1ad' },
+  { keywords: ['office', 'interior', 'workspace', 'architectural', 'desk'], id: '1497366216548-37526070297c' },
+  { keywords: ['snow', 'winter', 'frost', 'ice', 'white cold'], id: '1418985991508-e47386d96a71' },
+  { keywords: ['gradient', 'pink', 'smooth', 'pastel', 'vibrant', 'color'], id: '1579546929518-9e396f3cc809' },
+]
+
+const BACKDROP_FALLBACK_POOL = [
+  '1553356084-58ef4a67b2a7',
+  '1596178065887-1198b6148b2b',
+  '1511497584788-87676104235f',
+  '1550684848-fac1c5b4e853',
+  '1508746829417-e6f548d8d6ed',
+  '1618005182384-a83a8bd57fbe',
+  '1558618666-fcd25c85cd64',
+  '1507003211169-0a1dd7228f2d',
+  '1441974231531-c6227db76b6e',
+  '1506905925346-21bda4d32df4',
+  '1507525428034-b723cf961d3e',
+  '1579546929518-9e396f3cc809',
+  '1557672172-298e090bd0f1',
+  '1470770841072-f978cf4d019e',
+  '1513635269975-59663e0ac1ad',
+  '1497366216548-37526070297c',
+]
+
+// ─── Background Preview Helper ──────────────────────────────────────────────
+
+export const getBackgroundPreviewUrls = (suggestion: string) => {
+  const isColor = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(suggestion.trim())
+  if (isColor) {
+    return {
+      isColor: true,
+      color: suggestion.trim(),
+      thumbUrl: null,
+      fullUrl: null,
+    }
+  }
+
+  // Clean prompt: remove leading numbers, symbols or quotes
+  const cleanPrompt = suggestion.replace(/^\d+[\.\-\)]\s*/, '').replace(/["']/g, '').toLowerCase().trim()
+  
+  // Find closest matching Unsplash photo by keywords
+  let matchedPhotoId: string | null = null
+  for (const item of BACKDROP_PHOTO_MAP) {
+    if (item.keywords.some(kw => cleanPrompt.includes(kw))) {
+      matchedPhotoId = item.id
+      break
+    }
+  }
+
+  // Fallback to deterministic photo from pool based on string hash
+  if (!matchedPhotoId) {
+    let hash = 0
+    for (let i = 0; i < cleanPrompt.length; i++) {
+      hash = ((hash << 5) - hash) + cleanPrompt.charCodeAt(i)
+      hash |= 0
+    }
+    const idx = Math.abs(hash) % BACKDROP_FALLBACK_POOL.length
+    matchedPhotoId = BACKDROP_FALLBACK_POOL[idx]
+  }
+
+  return {
+    isColor: false,
+    color: null,
+    thumbUrl: `https://images.unsplash.com/photo-${matchedPhotoId}?w=400&h=280&fit=crop&q=80&auto=format`,
+    fullUrl: `https://images.unsplash.com/photo-${matchedPhotoId}?w=1200&h=900&fit=crop&q=85&auto=format`,
+  }
+}
+
+// ─── Suggestion Item Card Component ─────────────────────────────────────────
+
+interface SuggestionCardProps {
+  suggestion: string
+  index: number
+  onApply: (sug: string, isColor: boolean, color: string | null, fullUrl: string | null, index: number) => void
+  isApplying: boolean
+  isApplied: boolean
+  onPreview: (url: string, title: string) => void
+}
+
+const SuggestionItemCard: React.FC<SuggestionCardProps> = ({
+  suggestion,
+  index,
+  onApply,
+  isApplying,
+  isApplied,
+  onPreview,
+}) => {
+  const [imgLoaded, setImgLoaded] = useState(false)
+  const previewInfo = getBackgroundPreviewUrls(suggestion)
+  const [imgSrc, setImgSrc] = useState<string | null>(previewInfo.thumbUrl)
+  const cleanTitle = suggestion.replace(/^\d+[\.\-\)]\s*/, '').trim()
+
+  const handleImageError = () => {
+    // Guaranteed fallback to backup photo from curated CDN pool
+    const backupId = BACKDROP_FALLBACK_POOL[index % BACKDROP_FALLBACK_POOL.length]
+    setImgSrc(`https://images.unsplash.com/photo-${backupId}?w=400&h=280&fit=crop&q=80&auto=format`)
+    setImgLoaded(true)
+  }
+
+  return (
+    <div
+      onClick={() => onApply(suggestion, previewInfo.isColor, previewInfo.color, previewInfo.fullUrl, index)}
+      className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 cursor-pointer ${
+        isApplied
+          ? 'border-success/80 bg-success/5 shadow-md ring-1 ring-success/30'
+          : 'border-border bg-surface hover:border-magenta/60 hover:shadow-lg hover:-translate-y-0.5'
+      }`}
+    >
+      <div className="flex flex-col sm:flex-row gap-3 p-3">
+        {/* Visual Thumbnail */}
+        <div className="relative w-full sm:w-28 h-24 rounded-xl overflow-hidden bg-surface-raised border border-border shrink-0">
+          {previewInfo.isColor ? (
+            <div
+              className="w-full h-full flex items-center justify-center shadow-inner"
+              style={{ backgroundColor: previewInfo.color || '#ffffff' }}
+            >
+              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/50 text-white backdrop-blur-sm shadow">
+                {previewInfo.color}
+              </span>
+            </div>
+          ) : (
+            <>
+              {!imgLoaded && (
+                <div className="absolute inset-0 bg-surface-raised animate-pulse flex flex-col items-center justify-center gap-1">
+                  <span className="w-4 h-4 border-2 border-magenta/40 border-t-magenta rounded-full animate-spin" />
+                  <span className="text-[8px] text-muted font-bold">Loading...</span>
+                </div>
+              )}
+              <img
+                src={imgSrc!}
+                alt={cleanTitle}
+                loading="eager"
+                onLoad={() => setImgLoaded(true)}
+                onError={handleImageError}
+                className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+                  imgLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+              {previewInfo.fullUrl && imgLoaded && (
+                <button
+                  type="button"
+                  title="View full preview"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onPreview(previewInfo.fullUrl!, cleanTitle)
+                  }}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-md bg-black/60 hover:bg-black/90 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                  </svg>
+                </button>
+              )}
+            </>
+          )}
+          <span className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-white text-[9px] font-black">
+            #{index + 1}
+          </span>
+        </div>
+
+        {/* Content & Action */}
+        <div className="flex-1 flex flex-col justify-between min-w-0">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-magenta/10 border border-magenta/20 text-magenta">
+                {previewInfo.isColor
+                  ? '🎨 Palette Match'
+                  : cleanTitle.toLowerCase().includes('rainforest') || cleanTitle.toLowerCase().includes('garden') || cleanTitle.toLowerCase().includes('forest') || cleanTitle.toLowerCase().includes('meadow')
+                  ? '🌿 Natural Habitat Vibe'
+                  : cleanTitle.toLowerCase().includes('studio') || cleanTitle.toLowerCase().includes('marble') || cleanTitle.toLowerCase().includes('terracotta')
+                  ? '✨ Studio Texture Vibe'
+                  : cleanTitle.toLowerCase().includes('sunset') || cleanTitle.toLowerCase().includes('bokeh') || cleanTitle.toLowerCase().includes('sky')
+                  ? '🌅 Atmospheric Vibe'
+                  : '✨ Subject Vibe Match'}
+              </span>
+            </div>
+            <h4 className="text-xs font-bold text-primary mt-1.5 line-clamp-2 group-hover:text-magenta transition-colors">
+              {cleanTitle}
+            </h4>
+          </div>
+
+          <div className="mt-2.5 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isApplying}
+              onClick={(e) => {
+                e.stopPropagation()
+                onApply(suggestion, previewInfo.isColor, previewInfo.color, previewInfo.fullUrl, index)
+              }}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                isApplied
+                  ? 'bg-success text-white'
+                  : 'bg-magenta hover:bg-magenta/90 text-white active:scale-95'
+              }`}
+            >
+              {isApplying ? (
+                <>
+                  <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  <span>Applying to Studio...</span>
+                </>
+              ) : isApplied ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Applied to Canvas</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                  </svg>
+                  <span>Apply Background</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Chat Message Bubble ──────────────────────────────────────────────────────
 
 const WidgetMessage: React.FC<{
@@ -295,6 +545,11 @@ const WidgetMessage: React.FC<{
               {action.type === 'apply_enhance' && 'Optimize image exposure, white balance, and contrast settings.'}
               {action.type === 'apply_crop' && `Crop subject to aspect ratio ${action.aspectRatio}.`}
             </p>
+            {action.type === 'apply_bg' && action.libraryUrl && (
+              <div className="w-full h-20 rounded-lg overflow-hidden border border-border bg-surface-raised mt-1">
+                <img src={action.libraryUrl} alt="Background preview" className="w-full h-full object-cover" />
+              </div>
+            )}
             <button
               onClick={() => onApplyAction(action)}
               className="btn-primary text-[10px] py-1.5 px-3 self-start font-bold mt-1 shadow-sm flex items-center gap-1"
@@ -436,6 +691,9 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [suggestionsError, setSuggestionsError] = useState<ErrorInfo | null>(null)
+  const [applyingSugIdx, setApplyingSugIdx] = useState<number | null>(null)
+  const [appliedSugIdx, setAppliedSugIdx] = useState<number | null>(null)
+  const [previewModal, setPreviewModal] = useState<{ url: string; title: string } | null>(null)
 
   // ── Captions state ────────────────────────────────────────────────────────
   const [captions, setCaptions] = useState<string[]>([])
@@ -538,7 +796,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   // ── Suggestions ───────────────────────────────────────────────────────────
   const runSuggestions = async () => {
     if (!activeFile || suggestionsLoading) return
-    setSuggestionsLoading(true); setSuggestionsError(null); setSuggestions([])
+    setSuggestionsLoading(true); setSuggestionsError(null); setSuggestions([]); setAppliedSugIdx(null)
     try {
       const data = await imageService.getSuggestions(activeFile)
       setSuggestions(data.suggestions)
@@ -549,6 +807,46 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
 
   const retrySuggestions = () => {
     runSuggestions()
+  }
+
+  const handleApplySuggestion = async (
+    sug: string,
+    isColor: boolean,
+    color: string | null,
+    fullUrl: string | null,
+    index: number
+  ) => {
+    setApplyingSugIdx(index)
+    try {
+      const preset = isColor
+        ? { bgType: 'solid', solidColor: color || '#ffffff', libraryUrl: null }
+        : { bgType: 'library', libraryUrl: fullUrl, solidColor: '#ffffff' }
+
+      sessionStorage.setItem('bg_preset_settings', JSON.stringify(preset))
+      sessionStorage.setItem('bg_preset_auto_apply', 'true')
+
+      if (activeFile && activePreviewUrl) {
+        setActiveImage(activeFile, activePreviewUrl)
+      }
+
+      showToast(`✨ Applying "${sug}" background...`, 'info')
+
+      window.dispatchEvent(
+        new CustomEvent('apply_ai_preset', {
+          detail: { type: 'apply_bg', data: preset },
+        })
+      )
+
+      if (location.pathname !== '/replace-bg') {
+        navigate('/replace-bg')
+      }
+
+      setAppliedSugIdx(index)
+    } catch (e) {
+      showToast('Failed to apply background preset.', 'error')
+    } finally {
+      setApplyingSugIdx(null)
+    }
   }
 
   // ── Captions ──────────────────────────────────────────────────────────────
@@ -753,13 +1051,13 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
           <div className="p-3 space-y-2 shrink-0">
             <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
             <button onClick={runSuggestions} disabled={!activeFile || suggestionsLoading}
-              className="w-full py-2 rounded-xl bg-magenta hover:bg-magenta/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
+              className="w-full py-2.5 rounded-xl bg-magenta hover:bg-magenta/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
               {suggestionsLoading
-                ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating...</>
-                : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>Get Background Suggestions</>}
+                ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating AI Backdrops & Suggestions...</>
+                : <><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>Get Background Suggestions</>}
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2 scrollbar-none">
+          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-3 scrollbar-none">
             {suggestionsError && (
               <ErrorDisplay 
                 error={suggestionsError} 
@@ -768,18 +1066,39 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
               />
             )}
             {suggestions.length > 0 && !suggestionsLoading && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted">
+                    AI Suggested Backdrops ({suggestions.length})
+                  </p>
+                  <span className="text-[10px] text-magenta font-semibold">
+                    Click any card to apply live
+                  </span>
+                </div>
                 {suggestions.map((sug, i) => (
-                  <div key={i} className="flex gap-3 items-start bg-surface border border-border hover:border-magenta rounded-xl p-3 transition-all group">
-                    <span className="w-5 h-5 rounded-lg bg-magenta/10 border border-magenta/20 text-magenta text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
-                    <p className="text-[12px] text-secondary leading-relaxed group-hover:text-primary transition-colors">{sug}</p>
-                  </div>
+                  <SuggestionItemCard
+                    key={i}
+                    suggestion={sug}
+                    index={i}
+                    onApply={handleApplySuggestion}
+                    isApplying={applyingSugIdx === i}
+                    isApplied={appliedSugIdx === i}
+                    onPreview={(url, title) => setPreviewModal({ url, title })}
+                  />
                 ))}
               </div>
             )}
             {suggestions.length === 0 && !suggestionsLoading && !suggestionsError && (
-              <div className="h-full flex items-center justify-center py-8">
-                <p className="text-[11px] text-muted text-center">{activeFile ? 'Click the button above to get background recommendations.' : 'Upload an image to get started.'}</p>
+              <div className="h-full flex flex-col items-center justify-center text-center py-8 px-4">
+                <div className="w-12 h-12 rounded-2xl bg-magenta/10 border border-magenta/20 flex items-center justify-center text-magenta mb-3 shadow-inner">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <p className="text-xs font-bold text-primary">AI Background Recommender</p>
+                <p className="text-[11px] text-muted mt-1 leading-relaxed max-w-xs">
+                  {activeFile ? 'Click "Get Background Suggestions" above to see generated photo previews and apply them.' : 'Upload an image above to generate tailored backdrops.'}
+                </p>
               </div>
             )}
           </div>
@@ -941,6 +1260,55 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
           </span>
         )}
       </button>
+
+      {/* Background Full Preview Modal */}
+      {previewModal && (
+        <div
+          onClick={() => setPreviewModal(null)}
+          className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="relative max-w-2xl w-full bg-surface border border-border rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-raised">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🖼️</span>
+                <p className="text-xs font-bold text-primary truncate max-w-sm">{previewModal.title}</p>
+              </div>
+              <button
+                onClick={() => setPreviewModal(null)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-primary hover:bg-surface transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
+              <img
+                src={previewModal.url}
+                alt={previewModal.title}
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="p-3 border-t border-border bg-surface-raised flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const title = previewModal.title
+                  const url = previewModal.url
+                  setPreviewModal(null)
+                  handleApplySuggestion(title, false, null, url, 0)
+                }}
+                className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 shadow-md"
+              >
+                <span>✨</span> Apply This Background to Canvas
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
