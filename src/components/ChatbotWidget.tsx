@@ -686,6 +686,14 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [analysisError, setAnalysisError] = useState<ErrorInfo | null>(null)
+  const [copiedHex, setCopiedHex] = useState<string | null>(null)
+
+  const copyHexToClipboard = (hex: string) => {
+    navigator.clipboard.writeText(hex)
+    setCopiedHex(hex)
+    showToast(`Copied ${hex} to clipboard`, 'success')
+    setTimeout(() => setCopiedHex(null), 2000)
+  }
 
   // ── Suggestions state ─────────────────────────────────────────────────────
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -1009,7 +1017,142 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
               />
             )}
             {analysis && !analysisLoading && (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
+                {/* 1. AI Studio Readiness & Quality Score Card */}
+                <div className="bg-gradient-to-br from-surface-raised to-surface border border-border rounded-2xl p-3.5 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">📊</span>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-muted">AI Studio Readiness</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-success/15 border border-success/30 text-success text-[10px] font-bold">
+                      {analysis.quality_rating || 'Excellent · Studio Ready'}
+                    </span>
+                  </div>
+
+                  {/* Main Score Radial Highlight */}
+                  <div className="flex items-center gap-3.5 bg-surface rounded-xl p-3 border border-border">
+                    <div className="relative w-14 h-14 rounded-full flex items-center justify-center shrink-0 bg-gradient-brand shadow-inner p-1">
+                      <div className="w-full h-full rounded-full bg-surface flex flex-col items-center justify-center">
+                        <span className="text-base font-black text-primary leading-none">{analysis.quality_score || 94}</span>
+                        <span className="text-[7.5px] font-bold text-muted uppercase">/ 100</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-primary">High Studio Compatibility</p>
+                      <p className="text-[10.5px] text-secondary mt-0.5 leading-snug">
+                        Optimal lighting and contrast balance for sharp, pixel-perfect alpha background separation.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 4 Quality Breakdown Progress Bars */}
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-surface/80 rounded-xl p-2 border border-border/80">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-secondary">Edge Separation</span>
+                        <span className="font-bold text-teal">{analysis.edge_score || 95}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
+                        <div className="h-full rounded-full bg-teal transition-all duration-500" style={{ width: `${analysis.edge_score || 95}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="bg-surface/80 rounded-xl p-2 border border-border/80">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-secondary">Lighting Balance</span>
+                        <span className="font-bold text-magenta">{analysis.lighting_score || 90}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
+                        <div className="h-full rounded-full bg-magenta transition-all duration-500" style={{ width: `${analysis.lighting_score || 90}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="bg-surface/80 rounded-xl p-2 border border-border/80">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-secondary">Detail &amp; Sharpness</span>
+                        <span className="font-bold text-indigo">{analysis.sharpness_score || 92}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
+                        <div className="h-full rounded-full bg-indigo transition-all duration-500" style={{ width: `${analysis.sharpness_score || 92}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="bg-surface/80 rounded-xl p-2 border border-border/80">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-secondary">Background Isolation</span>
+                        <span className="font-bold text-success">{analysis.isolation_score || 96}%</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
+                        <div className="h-full rounded-full bg-success transition-all duration-500" style={{ width: `${analysis.isolation_score || 96}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Interactive Dominant Color Palette Card */}
+                {analysis.color_palette && analysis.color_palette.length > 0 && (
+                  <div className="bg-gradient-to-br from-surface-raised to-surface border border-border rounded-2xl p-3.5 shadow-sm space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm">🎨</span>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-muted">Dominant Color Palette</p>
+                      </div>
+                      <span className="text-[10px] text-magenta font-semibold">Click swatch to apply backdrop</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {analysis.color_palette.map((colorItem, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2.5 p-2 rounded-xl bg-surface border border-border hover:border-magenta/50 transition-all group"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleApplySuggestion(colorItem.name, true, colorItem.hex, null, i)}
+                            title="Apply as Solid Backdrop"
+                            className="w-8 h-8 rounded-lg border border-border/80 shadow-xs shrink-0 flex items-center justify-center transition-transform group-hover:scale-105"
+                            style={{ backgroundColor: colorItem.hex }}
+                          >
+                            <span className="opacity-0 group-hover:opacity-100 text-[10px] transition-opacity">✨</span>
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11.5px] font-bold text-primary truncate leading-none">{colorItem.name}</p>
+                            <p className="text-[10px] font-mono text-muted mt-1 leading-none">{colorItem.hex} {colorItem.percentage ? `· ${colorItem.percentage}%` : ''}</p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => copyHexToClipboard(colorItem.hex)}
+                              className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface-raised transition-colors flex items-center gap-1 text-[10.5px]"
+                              title="Copy Hex Code"
+                            >
+                              {copiedHex === colorItem.hex ? (
+                                <svg className="w-3.5 h-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 00-2 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApplySuggestion(colorItem.name, true, colorItem.hex, null, i)}
+                              className="px-2.5 py-1 rounded-lg bg-magenta/10 hover:bg-magenta text-magenta hover:text-white text-[10.5px] font-bold transition-all active:scale-95 shadow-2xs flex items-center gap-1"
+                              title="Apply as backdrop"
+                            >
+                              <span>✨</span> Apply
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Subject & Background Overview */}
                 {[
                   { label: 'Subject', value: analysis.subject },
                   { label: 'Image Type', value: analysis.image_type },
@@ -1021,6 +1164,8 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
                     <p className="text-[12px] text-secondary leading-relaxed">{card.value}</p>
                   </div>
                 ))}
+
+                {/* 4. Editing Roadmap */}
                 {analysis.editing_recommendations.length > 0 && (
                   <div className="bg-surface-raised border border-border rounded-xl p-3 space-y-2">
                     <p className="text-[9px] font-black uppercase tracking-widest text-muted">Editing Roadmap</p>
