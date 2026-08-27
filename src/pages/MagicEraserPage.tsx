@@ -179,7 +179,7 @@ export default function MagicEraserPage() {
 
   if (!originalUrl) {
     return (
-      <main className="flex-1 min-w-0 pb-16 md:pb-6">
+      <main className="relative max-w-6xl mx-auto px-4 sm:px-6 py-4 w-full">
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
           <div className="text-center mb-10 space-y-4">
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">
@@ -201,7 +201,7 @@ export default function MagicEraserPage() {
   }
 
   return (
-    <main className="flex-1 min-w-0 pb-16 md:pb-6">
+    <main className="relative max-w-6xl mx-auto px-4 sm:px-6 py-4 w-full">
       <div className="flex flex-col lg:flex-row gap-6 h-full">
         <div className="flex-1 flex flex-col gap-6 min-w-0">
           <div>
@@ -279,3 +279,4 @@ export default function MagicEraserPage() {
     </main>
   )
 }
+
