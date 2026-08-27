@@ -10,7 +10,7 @@ interface AdvancedEditorModalProps {
   onSaveRefined: (refinedBlob: Blob, previewUrl: string) => void;
 }
 
-type ToolMode = 'erase' | 'restore' | 'pan' | 'inpaint';
+type ToolMode = 'erase' | 'restore' | 'pan';
 
 export default function AdvancedEditorModal({
   isOpen,
@@ -38,11 +38,6 @@ export default function AdvancedEditorModal({
   // History state for undo/redo
   const [history, setHistory] = useState<ImageData[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
-
-  // Inpaint State
-  const [isProcessing, setIsProcessing] = useState(false);
-  const inpaintPointsRef = useRef<{x: number, y: number, radius: number}[]>([]);
-  const inpaintOriginalBlobRef = useRef<Blob | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const originalImgRef = useRef<HTMLImageElement | null>(null);
@@ -156,13 +151,6 @@ export default function AdvancedEditorModal({
       ctx.beginPath();
       ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
       ctx.fill();
-    } else if (toolMode === 'inpaint') {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(255, 0, 128, 0.5)';
-      ctx.beginPath();
-      ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-      ctx.fill();
-      inpaintPointsRef.current.push({ x, y, radius: brushSize / 2 });
     } else if (toolMode === 'restore' && originalImgRef.current) {
       // Paint from original image into destination
       ctx.save();
@@ -184,15 +172,6 @@ export default function AdvancedEditorModal({
     }
 
     isDrawingRef.current = true;
-    
-    if (toolMode === 'inpaint') {
-      inpaintPointsRef.current = [];
-      const canvas = canvasRef.current;
-      if (canvas) {
-         canvas.toBlob((blob) => { inpaintOriginalBlobRef.current = blob; }, 'image/png');
-      }
-    }
-
     const coords = getCanvasCoords(e);
     lastPointRef.current = coords;
     drawStroke(coords.x, coords.y);
@@ -210,7 +189,7 @@ export default function AdvancedEditorModal({
     lastPointRef.current = coords;
   };
 
-  const handleMouseUp = async () => {
+  const handleMouseUp = () => {
     if (toolMode === 'pan') {
       setIsPanning(false);
       return;
@@ -219,63 +198,6 @@ export default function AdvancedEditorModal({
     if (isDrawingRef.current) {
       isDrawingRef.current = false;
       lastPointRef.current = null;
-      
-      if (toolMode === 'inpaint' && inpaintPointsRef.current.length > 0 && inpaintOriginalBlobRef.current) {
-        setIsProcessing(true);
-        try {
-          const formData = new FormData();
-          formData.append('file', inpaintOriginalBlobRef.current, 'image.png');
-          formData.append('mask_points', JSON.stringify(inpaintPointsRef.current));
-          
-          const token = localStorage.getItem('bgr_token');
-          const headers: any = {};
-          if (token) headers['Authorization'] = 'Bearer ' + token;
-
-          const res = await fetch('http://localhost:8000/api/inpaint', {
-            method: 'POST',
-            headers,
-            body: formData
-          });
-
-          if (!res.ok) throw new Error('Inpainting failed');
-          const data = await res.json();
-          
-          const newImg = new Image();
-          newImg.crossOrigin = 'anonymous';
-          newImg.onload = () => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(newImg, 0, 0);
-            }
-            saveHistoryState();
-            setIsProcessing(false);
-          };
-          newImg.src = 'http://localhost:8000' + data.download_url;
-        } catch (err) {
-          console.error(err);
-          // Restore canvas
-          const prevImg = new Image();
-          prevImg.onload = () => {
-            const canvas = canvasRef.current;
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                    ctx.globalCompositeOperation = 'source-over';
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(prevImg, 0, 0);
-                }
-            }
-            setIsProcessing(false);
-          };
-          prevImg.src = URL.createObjectURL(inpaintOriginalBlobRef.current);
-        }
-        return;
-      }
-
       saveHistoryState();
     }
   };
@@ -384,7 +306,7 @@ export default function AdvancedEditorModal({
               <label className="text-[11px] font-bold text-muted uppercase tracking-wider block mb-2">
                 Refinement Tool
               </label>
-              <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface border border-border rounded-xl">
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-surface border border-border rounded-xl">
                 <button
                   type="button"
                   onClick={() => setToolMode('erase')}
@@ -415,15 +337,6 @@ export default function AdvancedEditorModal({
                   <span>Restore</span>
                 </button>
 
-
-                <button
-                  type="button"
-                  onClick={() => setToolMode('inpaint')}
-                  className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-medium transition-all ${toolMode === 'inpaint' ? 'bg-magenta text-white font-semibold shadow-sm' : 'text-secondary hover:text-primary hover:bg-surface-raised'}`}
-                >
-                  <span className="text-lg leading-none">?</span>
-                  <span>Magic Eraser</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => setToolMode('pan')}
@@ -508,12 +421,6 @@ export default function AdvancedEditorModal({
 
           {/* Right Canvas Area */}
           <div className="flex-1 bg-checker relative flex items-center justify-center overflow-hidden p-4">
-            {isProcessing && (
-              <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm text-white">
-                <div className="w-10 h-10 border-4 border-magenta border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="font-semibold tracking-wide shadow-sm">Applying Magic Eraser...</p>
-              </div>
-            )}
             <div
               className="relative shadow-2xl transition-transform duration-75"
               style={{
