@@ -172,9 +172,7 @@ export default function MagicEraserPage() {
           </div>
 
           {!originalUrl ? (
-            <div className="flex-1 min-h-[400px]">
-              <UploadZone onUpload={handleUpload} isProcessing={false} />
-            </div>
+            <UploadZone onFile={handleUpload} disabled={false} />
           ) : (
             <div className="flex flex-col gap-4 animate-fade-up">
               <div className="relative flex items-center justify-center overflow-hidden p-4 rounded-xl border border-border bg-surface-raised min-h-[400px]">
@@ -245,3 +243,4 @@ export default function MagicEraserPage() {
     </main>
   )
 }
+
