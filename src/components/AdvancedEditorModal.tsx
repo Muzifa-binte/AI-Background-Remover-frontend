@@ -227,7 +227,7 @@ export default function AdvancedEditorModal({
           formData.append('file', inpaintOriginalBlobRef.current, 'image.png');
           formData.append('mask_points', JSON.stringify(inpaintPointsRef.current));
           
-          const token = localStorage.getItem('token');
+          const token = localStorage.getItem('bgr_token');
           const headers: any = {};
           if (token) headers['Authorization'] = 'Bearer ' + token;
 
