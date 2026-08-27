@@ -30,6 +30,7 @@ const ShadowPage = lazy(() => import('./pages/ShadowPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const AIAnalysisPage = lazy(() => import('./pages/AIAnalysisPage'))
+const MagicEraserPage = lazy(() => import('./pages/MagicEraserPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // ── ChatbotWidget ──────────────────────────────────────────────────────────
@@ -106,3 +107,4 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
