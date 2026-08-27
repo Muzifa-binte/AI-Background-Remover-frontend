@@ -229,7 +229,7 @@ export default function AdvancedEditorModal({
           
           const token = localStorage.getItem('token');
           const headers: any = {};
-          if (token) headers['Authorization'] = Bearer ;
+          if (token) headers['Authorization'] = 'Bearer ' + token;
 
           const res = await fetch('http://localhost:8000/api/inpaint', {
             method: 'POST',
@@ -254,7 +254,7 @@ export default function AdvancedEditorModal({
             saveHistoryState();
             setIsProcessing(false);
           };
-          newImg.src = http://localhost:8000;
+          newImg.src = 'http://localhost:8000' + data.download_url;
         } catch (err) {
           console.error(err);
           // Restore canvas
@@ -419,7 +419,7 @@ export default function AdvancedEditorModal({
                 <button
                   type="button"
                   onClick={() => setToolMode('inpaint')}
-                  className={lex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-medium transition-all }
+                  className={`flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-xs font-medium transition-all ${toolMode === 'inpaint' ? 'bg-magenta text-white font-semibold shadow-sm' : 'text-secondary hover:text-primary hover:bg-surface-raised'}`}
                 >
                   <span className="text-lg leading-none">?</span>
                   <span>Magic Eraser</span>
