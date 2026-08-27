@@ -3,8 +3,11 @@ import UploadZone from '../components/UploadZone'
 import DownloadButton from '../components/DownloadButton'
 import SendToMenu from '../components/SendToMenu'
 import CustomSlider from '../components/CustomSlider'
+import { useActiveImage } from '../contexts/ActiveImageContext'
 
 export default function MagicEraserPage() {
+  const { activeFile, activePreviewUrl, setActiveImage, setOutput } = useActiveImage()
+
   const [originalUrl, setOriginalUrl] = useState<string | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -17,14 +20,23 @@ export default function MagicEraserPage() {
   const inpaintPointsRef = useRef<{ x: number; y: number; radius: number }[]>([])
   const inpaintOriginalBlobRef = useRef<Blob | null>(null)
 
+  // Sync with global ActiveImage context
+  useEffect(() => {
+    if (activeFile && activePreviewUrl) {
+      setOriginalUrl(activePreviewUrl)
+    }
+  }, [activeFile, activePreviewUrl])
+
   const handleUpload = (file: File) => {
     const url = URL.createObjectURL(file)
+    setActiveImage(file, url)
     setOriginalUrl(url)
     setResultUrl(null)
     setError(null)
   }
 
   const reset = () => {
+    setActiveImage(null, null)
     setOriginalUrl(null)
     setResultUrl(null)
     setError(null)
@@ -142,7 +154,12 @@ export default function MagicEraserPage() {
       if (!res.ok) throw new Error('Failed to remove object. Please try again.')
       const data = await res.json()
 
-      setResultUrl('http://localhost:8000' + data.download_url)
+      const fullResultUrl = 'http://localhost:8000' + data.download_url
+      setResultUrl(fullResultUrl)
+      
+      // Update global output for "Send To..."
+      setOutput(fullResultUrl, 'magic_eraser_result.png')
+
     } catch (err: any) {
       console.error(err)
       setError(err.message || 'An error occurred during inpainting.')
@@ -160,6 +177,29 @@ export default function MagicEraserPage() {
     }
   }
 
+  if (!originalUrl) {
+    return (
+      <main className="flex-1 min-w-0 pb-16 md:pb-6">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4">
+          <div className="text-center mb-10 space-y-4">
+            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-primary">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-magenta to-magenta-hover pr-2">
+                Magic Eraser
+              </span>
+            </h1>
+            <p className="text-lg text-secondary max-w-xl mx-auto leading-relaxed">
+              Brush over any unwanted object or person — AI will remove it and fill in the background naturally.
+            </p>
+          </div>
+          
+          <div className="w-full max-w-2xl mx-auto shadow-sm rounded-3xl overflow-hidden bg-surface p-1">
+            <UploadZone onFile={handleUpload} disabled={false} />
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="flex-1 min-w-0 pb-16 md:pb-6">
       <div className="flex flex-col lg:flex-row gap-6 h-full">
@@ -171,52 +211,48 @@ export default function MagicEraserPage() {
             </p>
           </div>
 
-          {!originalUrl ? (
-            <UploadZone onFile={handleUpload} disabled={false} />
-          ) : (
-            <div className="flex flex-col gap-4 animate-fade-up">
-              <div className="relative flex items-center justify-center overflow-hidden p-4 rounded-xl border border-border bg-surface-raised min-h-[400px]">
-                {isProcessing && (
-                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm text-white rounded-xl">
-                    <div className="w-10 h-10 border-4 border-magenta border-t-transparent rounded-full animate-spin mb-4" />
-                    <p className="font-semibold tracking-wide">Applying Magic Eraser...</p>
-                    <p className="text-xs text-white/60 mt-1">This may take a few seconds</p>
-                  </div>
-                )}
-
-                {error && (
-                  <div className="absolute top-4 left-4 right-4 z-40 bg-danger/10 border border-danger/20 p-3 rounded-lg flex items-center gap-2 text-danger">
-                    <span className="text-lg">warning</span>
-                    <span className="text-sm font-medium">{error}</span>
-                  </div>
-                )}
-
-                <canvas
-                  ref={canvasRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseMove={handleMouseMove}
-                  onMouseUp={handleMouseUp}
-                  onMouseLeave={handleMouseUp}
-                  className="max-w-full max-h-full object-contain cursor-crosshair shadow-xl rounded"
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">
-                <p className="text-sm text-secondary">Draw over the object to remove, then release.</p>
-                <div className="flex items-center gap-2">
-                  <button onClick={reset} className="btn-ghost text-sm">
-                    New image
-                  </button>
-                  {resultUrl && (
-                    <>
-                      <SendToMenu excludeRoute="/magic-eraser" />
-                      <DownloadButton downloadUrl={resultUrl} filename="magic_eraser_result.png" />
-                    </>
-                  )}
+          <div className="flex flex-col gap-4 animate-fade-up">
+            <div className="relative flex items-center justify-center overflow-hidden p-4 rounded-xl border border-border bg-surface-raised min-h-[400px]">
+              {isProcessing && (
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm text-white rounded-xl">
+                  <div className="w-10 h-10 border-4 border-magenta border-t-transparent rounded-full animate-spin mb-4" />
+                  <p className="font-semibold tracking-wide">Applying Magic Eraser...</p>
+                  <p className="text-xs text-white/60 mt-1">This may take a few seconds</p>
                 </div>
+              )}
+
+              {error && (
+                <div className="absolute top-4 left-4 right-4 z-40 bg-danger/10 border border-danger/20 p-3 rounded-lg flex items-center gap-2 text-danger">
+                  <span className="text-lg">⚠️</span>
+                  <span className="text-sm font-medium">{error}</span>
+                </div>
+              )}
+
+              <canvas
+                ref={canvasRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                className="max-w-full max-h-full object-contain cursor-crosshair shadow-xl rounded"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 flex-wrap p-4 bg-surface-raised rounded-xl border border-border">
+              <p className="text-sm text-secondary">Draw over the object to remove, then release.</p>
+              <div className="flex items-center gap-2">
+                <button onClick={reset} className="btn-ghost text-sm">
+                  New image
+                </button>
+                {resultUrl && (
+                  <>
+                    <SendToMenu excludeRoute="/magic-eraser" />
+                    <DownloadButton downloadUrl={resultUrl} filename="magic_eraser_result.png" />
+                  </>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         <aside className="w-full lg:w-72 shrink-0 flex flex-col gap-4 self-start">
@@ -243,4 +279,3 @@ export default function MagicEraserPage() {
     </main>
   )
 }
-
