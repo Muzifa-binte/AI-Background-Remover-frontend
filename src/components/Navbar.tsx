@@ -42,6 +42,10 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/magic-eraser', label: 'Magic Eraser', end: false,
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">✨</span>),
+  },
+  {
     to: '/smart-crop', label: 'Smart Crop', end: false,
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
@@ -366,3 +370,4 @@ export default function Navbar() {
     </header>
   )
 }
+
