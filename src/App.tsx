@@ -30,6 +30,7 @@ const ShadowPage = lazy(() => import('./pages/ShadowPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const AIAnalysisPage = lazy(() => import('./pages/AIAnalysisPage'))
+const MagicEraserPage = lazy(() => import('./pages/MagicEraserPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // ── ChatbotWidget ──────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ function MainLayout() {
               <Route path="/recolor" element={<ProtectedRoute><RecolorPage /></ProtectedRoute>} />
               <Route path="/smart-crop" element={<ProtectedRoute><SmartCropPage /></ProtectedRoute>} />
               <Route path="/batch" element={<ProtectedRoute><BatchPage /></ProtectedRoute>} />
+              <Route path="/magic-eraser" element={<ProtectedRoute><MagicEraserPage /></ProtectedRoute>} />
               <Route path="/shadow" element={<ProtectedRoute><ShadowPage /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
@@ -105,3 +107,4 @@ export default function App() {
     </BrowserRouter>
   )
 }
+
