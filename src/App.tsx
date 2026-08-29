@@ -23,6 +23,8 @@ const SmartCropPage      = lazy(() => import('./pages/SmartCropPage'))
 const BatchPage          = lazy(() => import('./pages/BatchPage'))
 const ShadowPage         = lazy(() => import('./pages/ShadowPage'))
 const HistoryPage        = lazy(() => import('./pages/HistoryPage'))
+const PromptTemplatesPage    = lazy(() => import('./pages/PromptTemplatesPage'))
+const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'))
 const SettingsPage       = lazy(() => import('./pages/SettingsPage'))
 const NotFoundPage       = lazy(() => import('./pages/NotFoundPage'))
 
@@ -80,6 +82,12 @@ export default function App() {
                   } />
                   <Route path="/history" element={
                     <ProtectedRoute><HistoryPage /></ProtectedRoute>
+                  } />
+                  <Route path="/prompts" element={
+                    <ProtectedRoute><PromptTemplatesPage /></ProtectedRoute>
+                  } />
+                  <Route path="/analytics" element={
+                    <ProtectedRoute><AnalyticsDashboardPage /></ProtectedRoute>
                   } />
                   <Route path="/settings" element={
                     <ProtectedRoute><SettingsPage /></ProtectedRoute>

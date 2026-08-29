@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import DOMPurify from 'dompurify'
-import type { Message, ChatResponse, ImageAnalysis, CaptionStyle } from '../types'
+import type { Message, ChatResponse, ImageAnalysis, CaptionStyle, PromptTemplate } from '../types'
 import { chatService } from '../services/chatService'
+import { promptService } from '../services/promptService'
+import { favoriteService } from '../services/favoriteService'
 import { imageService } from '../services/imageService'
 import { useActiveImage } from '../contexts/ActiveImageContext'
 import { useLocation } from 'react-router-dom'
@@ -10,8 +12,59 @@ import { useLocation } from 'react-router-dom'
 
 type Mode = 'chat' | 'analysis' | 'suggestions' | 'captions'
 
+type Position = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
+
 interface ChatbotWidgetProps {
-  position?: 'bottom-right' | 'bottom-left'
+  position?: Position
+}
+
+const MAX_CHARS = 2000
+
+// ─── Smart Conversation Helpers ────────────────────────────────────────────
+
+const TOPIC_KEYWORDS: Record<string, string[]> = {
+  background: ['background', 'backdrop', 'bg'],
+  lighting: ['light', 'lighting', 'bright', 'dark', 'shadow', 'exposure'],
+  crop: ['crop', 'frame', 'composition', 'aspect', 'ratio', 'align', 'center'],
+  quality: ['quality', 'resolution', 'sharp', 'blur', 'detail', 'pixelat'],
+  caption: ['caption', 'write', 'copy', 'description'],
+}
+
+function detectTopic(text: string): string {
+  const lower = text.toLowerCase()
+  for (const topic in TOPIC_KEYWORDS) {
+    if (TOPIC_KEYWORDS[topic].some(w => lower.includes(w))) return topic
+  }
+  return 'general'
+}
+
+function detectIntent(text: string): string {
+  const lower = text.toLowerCase().trim()
+  if (/^(hi|hello|hey|salam|assalam)/.test(lower)) return 'greeting'
+  if (lower.endsWith('?') || /^(what|how|why|can|should|is|are|do|does)\b/.test(lower)) return 'question'
+  if (/^(make|remove|change|crop|enhance|replace|add|write|generate|suggest)\b/.test(lower)) return 'request'
+  if (/(good|bad|great|love|hate|thanks|thank you)/.test(lower)) return 'feedback'
+  return 'other'
+}
+
+const FOLLOWUP_MAP: Record<string, string[]> = {
+  background: ['Suggest another background', 'Make it more minimal'],
+  lighting: ['How to fix uneven lighting?', 'Suggest a brighter tone'],
+  crop: ['Try a square crop', 'Center the subject better'],
+  quality: ['How to improve sharpness?', 'Upscale this image'],
+  caption: ['Write a shorter caption', 'Make it more playful'],
+  general: ['What should I do next?', 'Any quick improvements?'],
+}
+
+function buildFollowUps(topic?: string): string[] {
+  return FOLLOWUP_MAP[topic || 'general'] || FOLLOWUP_MAP.general
+}
+
+function buildHistoryContext(messages: Message[], maxTurns: number = 3): string {
+  if (messages.length === 0) return ''
+  const recent = messages.slice(-maxTurns * 2)
+  const lines = recent.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+  return `Previous conversation:\n${lines.join('\n')}\n\n`
 }
 
 // ─── Error Types ───────────────────────────────────────────────────────────────
@@ -39,7 +92,7 @@ const TypingDots = () => (
 const getErrorInfo = (error: any): ErrorInfo => {
   const message = error.response?.data?.detail || error.message || 'An unexpected error occurred'
   const lowerMessage = message.toLowerCase()
-  
+
   if (lowerMessage.includes('authentication') || lowerMessage.includes('api key')) {
     return {
       type: 'auth',
@@ -80,7 +133,7 @@ const getErrorInfo = (error: any): ErrorInfo => {
       timestamp: Date.now()
     }
   }
-  
+
   return {
     type: 'generic',
     message: message || 'An unexpected error occurred. Please try again.',
@@ -139,24 +192,18 @@ const formatMessage = (text: string, isUser: boolean) => {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-  // Headers: ### Title -> Bold, slightly larger
   html = html.replace(/^###\s+(.*)$/gm, '<h4 class="text-[12px] font-black text-primary mt-2 mb-1">$1</h4>')
   html = html.replace(/^##\s+(.*)$/gm, '<h3 class="text-[13px] font-black text-primary mt-2.5 mb-1">$1</h3>')
   html = html.replace(/^#\s+(.*)$/gm, '<h2 class="text-sm font-black text-primary mt-3 mb-1.5">$1</h2>')
 
-  // Bullet items: - item
   html = html.replace(/^\s*[-*]\s+(.*)$/gm, '<div class="flex gap-2 items-start pl-1 mt-1"><span class="text-magenta/80 mt-[5px] shrink-0 w-1.5 h-1.5 rounded-full bg-magenta"></span><span class="text-secondary">$1</span></div>')
 
-  // Bold: **text**
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-primary">$1</strong>')
 
-  // Italics: *text*
   html = html.replace(/\*(.*?)\*/g, '<em class="italic text-secondary/90">$1</em>')
 
-  // Inline code
   html = html.replace(/`(.*?)`/g, '<code class="px-1 py-0.5 rounded bg-surface-raised border border-border font-mono text-[10.5px] text-magenta">$1</code>')
 
-  // Line breaks
   html = html.replace(/\n/g, '<br />')
 
   const safeHtml = DOMPurify.sanitize(html, {
@@ -238,11 +285,26 @@ const MiniUploader: React.FC<MiniUploaderProps> = ({ file, previewUrl, onUpload,
 
 // ─── Chat Message Bubble ──────────────────────────────────────────────────────
 
-const WidgetMessage: React.FC<{ role: 'user' | 'assistant'; content: string; thinking?: string | null }> = ({ role, content, thinking }) => {
+interface WidgetMessageProps {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  thinking?: string | null
+  copied?: boolean
+  onCopy?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
+  onResend?: () => void
+  onFavorite?: () => void
+  favorited?: boolean
+  topic?: string
+}
+
+const WidgetMessage: React.FC<WidgetMessageProps> = ({ role, content, thinking, copied, onCopy, onEdit, onDelete, onResend, onFavorite, favorited, topic }) => {
   const isUser = role === 'user'
   const [showThinking, setShowThinking] = useState(false)
   return (
-    <div className={`flex gap-2 max-w-[92%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
+    <div className={`group flex gap-2 max-w-[92%] ${isUser ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
       <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border text-[9px] font-black ${
         isUser ? 'bg-magenta/10 border-magenta/20 text-magenta' : 'bg-teal/10 border-teal/20 text-teal'
       }`}>
@@ -270,95 +332,191 @@ const WidgetMessage: React.FC<{ role: 'user' | 'assistant'; content: string; thi
             )}
           </div>
         )}
-        <div className={`rounded-2xl px-3 py-2.5 shadow-md ${
-          isUser ? 'bg-gradient-brand text-white rounded-tr-none' : 'bg-surface border border-border rounded-tl-none'
-        }`}>
-          {formatMessage(content, isUser)}
+        {!isUser && topic && topic !== 'general' && (
+          <span className="self-start px-2 py-0.5 rounded-full bg-teal/10 border border-teal/20 text-teal text-[9px] font-bold uppercase tracking-wide">
+            {topic}
+          </span>
+        )}
+        <div className="relative">
+          <div className={`rounded-2xl px-3 py-2.5 shadow-md ${
+            isUser ? 'bg-gradient-brand text-white rounded-tr-none' : 'bg-surface border border-border rounded-tl-none'
+          }`}>
+            {formatMessage(content, isUser)}
+          </div>
+          {/* Quick actions — visible on hover */}
+          <div className={`absolute top-0 ${isUser ? 'right-full mr-1.5' : 'left-full ml-1.5'} opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1`}>
+            {isUser ? (
+              <>
+                {onEdit && (
+                  <button onClick={onEdit} title="Edit & resend" className="w-5 h-5 rounded-md bg-surface-raised border border-border flex items-center justify-center text-muted hover:text-primary hover:border-magenta/40 transition-all">
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828z" /></svg>
+                  </button>
+                )}
+                {onResend && (
+                  <button onClick={onResend} title="Resend" className="w-5 h-5 rounded-md bg-surface-raised border border-border flex items-center justify-center text-muted hover:text-primary hover:border-magenta/40 transition-all">
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  </button>
+                )}
+              </>
+            ) : (
+              onCopy && (
+                <button onClick={onCopy} title="Copy" className="w-5 h-5 rounded-md bg-surface-raised border border-border flex items-center justify-center text-muted hover:text-primary hover:border-magenta/40 transition-all">
+                  {copied
+                    ? <svg className="w-2.5 h-2.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                    : <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002-2h2a2 2 0 012 2M8 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                  }
+                </button>
+              )
+            )}
+            {onFavorite && !isUser && (
+              <button onClick={onFavorite} title={favorited ? 'Favorited' : 'Add to favorites'}
+                className={`w-5 h-5 rounded-md bg-surface-raised border flex items-center justify-center transition-all ${favorited ? 'text-amber-400 border-amber-400/40' : 'text-muted border-border hover:text-amber-400 hover:border-amber-400/40'}`}>
+                <svg className="w-2.5 h-2.5" fill={favorited ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={onDelete} title="Delete" className="w-5 h-5 rounded-md bg-surface-raised border border-border flex items-center justify-center text-muted hover:text-danger hover:border-danger/40 transition-all">
+                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
+
 // ─── Main Widget ──────────────────────────────────────────────────────────────
 
+const SIZE_PRESETS = {
+  compact:  { width: 380, height: 560 },
+  standard: { width: 480, height: 680 },
+  large:    { width: 620, height: 820 },
+} as const
+
+type SizeKey = keyof typeof SIZE_PRESETS
+const MIN_WIDTH = 340
+const MAX_WIDTH = 900
+const MIN_HEIGHT = 420
+const MAX_HEIGHT_VH = 92
+
 const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
-  position = 'bottom-right',
+  position: initialPosition = 'bottom-right',
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [mode, setMode] = useState<Mode>('chat')
   const [unread, setUnread] = useState(0)
 
-  // Context active image context
-  const { activeFile: contextFile, activePreviewUrl: contextPreviewUrl, setActiveImage } = useActiveImage()
+  const [position, setPosition] = useState<Position>(initialPosition)
+  const [size, setSize] = useState<{ width: number; height: number }>(SIZE_PRESETS.standard)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isMinimized, setIsMinimized] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null)
+  const [showPositionMenu, setShowPositionMenu] = useState(false)
+  const positionMenuRef = useRef<HTMLDivElement>(null)
 
-  // Internal image state (overridden by context image if provided)
+  useEffect(() => {
+    if (!showPositionMenu) return
+    function handler(e: MouseEvent) {
+      if (positionMenuRef.current && !positionMenuRef.current.contains(e.target as Node)) {
+        setShowPositionMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showPositionMenu])
+
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    resizeStartRef.current = { x: e.clientX, y: e.clientY, w: size.width, h: size.height }
+    setIsResizing(true)
+  }
+
+  useEffect(() => {
+    if (!isResizing) return
+    const onMove = (e: MouseEvent) => {
+      const start = resizeStartRef.current
+      if (!start) return
+      const growsLeft = position === 'bottom-right' || position === 'top-right'
+      const growsUp = position === 'top-right' || position === 'top-left'
+      const deltaX = growsLeft ? (start.x - e.clientX) : (e.clientX - start.x)
+      const deltaY = growsUp ? (e.clientY - start.y) : (start.y - e.clientY)
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, start.w + deltaX))
+      const newHeight = Math.min(window.innerHeight * (MAX_HEIGHT_VH / 100), Math.max(MIN_HEIGHT, start.h + deltaY))
+      setSize({ width: newWidth, height: newHeight })
+    }
+    const onUp = () => { setIsResizing(false); resizeStartRef.current = null }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+  }, [isResizing, position])
+
+  const applySizePreset = (key: SizeKey) => setSize(SIZE_PRESETS[key])
+
+  const { activeFile: contextFile, activePreviewUrl: contextPreviewUrl, setActiveImage } = useActiveImage()
   const [internalFile, setInternalFile] = useState<File | null>(null)
   const [internalPreviewUrl, setInternalPreviewUrl] = useState<string | null>(null)
-
   const activeFile = contextFile ?? internalFile
   const activePreviewUrl = contextPreviewUrl ?? internalPreviewUrl
 
-  // ── Chat state ────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<Message[]>([])
   const location = useLocation()
   const currentPath = location.pathname
 
-  // Page-specific quick suggestions (chips)
   const getSuggestionsForPath = (path: string): string[] => {
     switch (path) {
-      case '/enhance':
-        return ['How to enhance detail?', 'Color correction tips', 'Is the lighting good?']
-      case '/replace-bg':
-        return ['Backdrop ideas', 'Suggest matching color', 'Lighting matching help']
-      case '/smart-crop':
-        return ['Rule of thirds advice', 'Best aspect ratio?', 'Is subject centered?']
-      case '/batch':
-        return ['Batch workflows', 'Standardize styling', 'Optimizing format']
-      case '/history':
-        return ['Analyzing my history', 'Clear history help', 'Download options']
-      case '/':
-      default:
-        return ['Suggest a background', 'How should I edit this?', 'Write a caption']
+      case '/enhance': return ['How to enhance detail?', 'Color correction tips', 'Is the lighting good?']
+      case '/replace-bg': return ['Backdrop ideas', 'Suggest matching color', 'Lighting matching help']
+      case '/smart-crop': return ['Rule of thirds advice', 'Best aspect ratio?', 'Is subject centered?']
+      case '/batch': return ['Batch workflows', 'Standardize styling', 'Optimizing format']
+      case '/history': return ['Analyzing my history', 'Clear history help', 'Download options']
+      case '/': default: return ['Suggest a background', 'How should I edit this?', 'Write a caption']
     }
   }
 
-  // Page-specific prompt helper
   const getPromptContextForPath = (path: string): string => {
     switch (path) {
-      case '/enhance':
-        return 'System context: The user is currently on the Image Enhance page. Focus your advice on image quality, resolution, contrast, detail recovery, color balancing, and sharpening adjustments.'
-      case '/replace-bg':
-        return 'System context: The user is currently on the Replace Background page. Focus your advice on background composition, lighting/shadow matching, background color choices, and aesthetic themes.'
-      case '/smart-crop':
-        return 'System context: The user is currently on the Smart Crop page. Focus your advice on image composition, rule of thirds, framing, grid alignment, aspect ratios, and centering.'
-      case '/batch':
-        return 'System context: The user is currently on the Batch Processing page. Focus your advice on managing high volumes of images, processing queues, scaling, file organization, and bulk standardizations.'
-      case '/history':
-        return 'System context: The user is currently on the History page. Focus your advice on organizing past runs, downloading transparent PNG outputs, and managing previous project history logs.'
-      case '/':
-      default:
-        return 'System context: The user is currently on the Background Remover home page. Focus your advice on transparency, background separation, edge smoothness, and basic export options.'
+      case '/enhance': return 'System context: The user is currently on the Image Enhance page. Focus your advice on image quality, resolution, contrast, detail recovery, color balancing, and sharpening adjustments.'
+      case '/replace-bg': return 'System context: The user is currently on the Replace Background page. Focus your advice on background composition, lighting/shadow matching, background color choices, and aesthetic themes.'
+      case '/smart-crop': return 'System context: The user is currently on the Smart Crop page. Focus your advice on image composition, rule of thirds, framing, grid alignment, aspect ratios, and centering.'
+      case '/batch': return 'System context: The user is currently on the Batch Processing page. Focus your advice on managing high volumes of images, processing queues, scaling, file organization, and bulk standardizations.'
+      case '/history': return 'System context: The user is currently on the History page. Focus your advice on organizing past runs, downloading transparent PNG outputs, and managing previous project history logs.'
+      case '/': default: return 'System context: The user is currently on the Background Remover home page. Focus your advice on transparency, background separation, edge smoothness, and basic export options.'
     }
   }
+
   const [chatInput, setChatInput] = useState('')
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState<ErrorInfo | null>(null)
   const [pendingChatMessage, setPendingChatMessage] = useState<string | null>(null)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<PromptTemplate[]>([])
+  const [templatesLoading, setTemplatesLoading] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set())
+  const [showBatch, setShowBatch] = useState(false)
+  const [batchFiles, setBatchFiles] = useState<File[]>([])
+  const [batchResults, setBatchResults] = useState<{ name: string; status: 'pending' | 'done' | 'error'; summary: string }[]>([])
+  const [batchRunning, setBatchRunning] = useState(false)
+  const batchFileInputRef = useRef<HTMLInputElement>(null)
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
+  const chatFileInputRef = useRef<HTMLInputElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // ── Analysis state ────────────────────────────────────────────────────────
   const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null)
   const [analysisLoading, setAnalysisLoading] = useState(false)
   const [analysisError, setAnalysisError] = useState<ErrorInfo | null>(null)
 
-  // ── Suggestions state ─────────────────────────────────────────────────────
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [suggestionsError, setSuggestionsError] = useState<ErrorInfo | null>(null)
 
-  // ── Captions state ────────────────────────────────────────────────────────
   const [captions, setCaptions] = useState<string[]>([])
   const [captionStyle, setCaptionStyle] = useState<CaptionStyle>('casual')
   const [captionsLoading, setCaptionsLoading] = useState(false)
@@ -366,26 +524,21 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [selectedCaption, setSelectedCaption] = useState<number | null>(null)
   const [copiedCaption, setCopiedCaption] = useState<number | null>(null)
 
-  // Auto-scroll chat
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, chatLoading])
 
-  // Focus chat input when switching to chat mode or opening
   useEffect(() => {
     if (isOpen && mode === 'chat') setTimeout(() => chatInputRef.current?.focus(), 150)
     if (isOpen) setUnread(0)
   }, [isOpen, mode])
 
-  // Clear internal image when external context image arrives
   useEffect(() => {
     if (contextFile) { setInternalFile(null); setInternalPreviewUrl(null) }
   }, [contextFile])
 
-  // ── Image handlers ────────────────────────────────────────────────────────
   const handleUpload = useCallback((f: File) => {
     const url = URL.createObjectURL(f)
     setInternalFile(f)
     setInternalPreviewUrl(url)
-    // Clear previous results when new image is uploaded
     setAnalysis(null); setSuggestions([]); setCaptions([]); setSelectedCaption(null)
   }, [])
 
@@ -396,90 +549,186 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
     setAnalysis(null); setSuggestions([]); setCaptions([]); setSelectedCaption(null)
   }
 
-  // ── Chat ──────────────────────────────────────────────────────────────────
+  const handleChatAttachClick = () => chatFileInputRef.current?.click()
+  const handleChatFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f && f.type.startsWith('image/')) handleUpload(f)
+    e.target.value = ''
+  }
+
   const sendChat = async (retryMessage: string | null = null) => {
     const text = retryMessage || chatInput.trim()
     if (!text || chatLoading) return
-    
-    const userMsg: Message = { id: Date.now() + '-u', role: 'user', content: text, timestamp: Date.now() }
+    const topic = detectTopic(text)
+    const intent = detectIntent(text)
+    const historyContext = buildHistoryContext(messages)
+    const userMsg: Message = { id: Date.now() + '-u', role: 'user', content: text, timestamp: Date.now(), topic }
     setMessages(prev => [...prev, userMsg])
     setChatInput('')
     setPendingChatMessage(null)
+    setEditingId(null)
     setChatLoading(true); setChatError(null)
-    
     try {
       const routeContext = getPromptContextForPath(currentPath)
-      const combinedText = `${routeContext}\n\nUser Message: ${text}`
+      const combinedText = `${routeContext}\n\n${historyContext}User Message (intent: ${intent}): ${text}`
       const res: ChatResponse = await chatService.sendMessage(combinedText, activeFile)
-      const aiMsg: Message = { id: Date.now() + '-a', role: 'assistant', content: res.reply, thinking: res.thinking, timestamp: Date.now() }
+      const aiMsg: Message = { id: Date.now() + '-a', role: 'assistant', content: res.reply, thinking: res.thinking, timestamp: Date.now(), topic: detectTopic(res.reply) }
       setMessages(prev => [...prev, aiMsg])
       if (!isOpen) setUnread(n => n + 1)
     } catch (e: any) {
       const errorInfo = getErrorInfo(e)
       setChatError(errorInfo)
       setPendingChatMessage(text)
-      // Remove the user message if it failed
       setMessages(prev => prev.filter(msg => msg.id !== userMsg.id))
     } finally { setChatLoading(false) }
   }
 
-  const retryChat = () => {
-    if (pendingChatMessage) {
-      sendChat(pendingChatMessage)
-    }
-  }
+  const retryChat = () => { if (pendingChatMessage) sendChat(pendingChatMessage) }
 
   const handleChatKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat() }
   }
 
-  // ── Analysis ──────────────────────────────────────────────────────────────
+  const handleCopyMessage = async (id: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedMessageId(id)
+      setTimeout(() => setCopiedMessageId(null), 2000)
+    } catch { /* ignore */ }
+  }
+
+  const handleToggleFavorite = async (id: string, content: string) => {
+    if (favoritedIds.has(id)) return
+    try {
+      await favoriteService.create(content, 'chat')
+      setFavoritedIds(prev => new Set(prev).add(id))
+    } catch { /* ignore */ }
+  }
+
+  const handleBatchFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/')).slice(0, 10)
+    setBatchFiles(files)
+    setBatchResults([])
+    e.target.value = ''
+  }
+
+  const runBatch = async () => {
+    if (batchFiles.length === 0 || batchRunning) return
+    setBatchRunning(true)
+    setBatchResults(batchFiles.map(f => ({ name: f.name, status: 'pending' as const, summary: '' })))
+    for (let i = 0; i < batchFiles.length; i++) {
+      const file = batchFiles[i]
+      try {
+        let summary = ''
+        if (mode === 'analysis') {
+          const data = await imageService.analyze(file)
+          summary = `${data.subject} — ${data.image_type}`
+        } else if (mode === 'suggestions') {
+          const data = await imageService.getSuggestions(file)
+          summary = data.suggestions.slice(0, 2).join(' | ')
+        } else if (mode === 'captions') {
+          const data = await imageService.generateCaptions(file, captionStyle)
+          summary = data.captions[0] || ''
+        }
+        setBatchResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'done', summary } : r))
+      } catch {
+        setBatchResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: 'error', summary: 'Failed' } : r))
+      }
+    }
+    setBatchRunning(false)
+  }
+
+  const toggleBatch = () => {
+    setShowBatch(v => !v)
+    setBatchFiles([])
+    setBatchResults([])
+  }
+
+  const handleDeleteMessage = (id: string) => setMessages(prev => prev.filter(m => m.id !== id))
+
+  const handleEditMessage = (id: string, content: string) => {
+    const idx = messages.findIndex(m => m.id === id)
+    if (idx !== -1) setMessages(prev => prev.slice(0, idx))
+    setChatInput(content)
+    setEditingId(id)
+    setTimeout(() => chatInputRef.current?.focus(), 50)
+  }
+
+  const handleResendMessage = (content: string) => sendChat(content)
+
+  const fetchTemplates = async () => {
+    if (templatesLoading) return
+    setTemplatesLoading(true)
+    try {
+      const data = await promptService.list()
+      setTemplates(data)
+    } catch { /* ignore */ }
+    finally { setTemplatesLoading(false) }
+  }
+
+  const toggleTemplates = () => {
+    const next = !showTemplates
+    setShowTemplates(next)
+    if (next && templates.length === 0) fetchTemplates()
+  }
+
+  const handleUseTemplate = async (t: PromptTemplate) => {
+    setChatInput(t.prompt_text.slice(0, MAX_CHARS))
+    setShowTemplates(false)
+    chatInputRef.current?.focus()
+    try { await promptService.use(t.template_id) } catch { /* ignore */ }
+  }
+
+  const handleSaveTemplate = async () => {
+    const text = chatInput.trim()
+    if (!text) return
+    const title = window.prompt('Template title:', text.slice(0, 40))
+    if (!title) return
+    try {
+      const t = await promptService.create(title, text)
+      setTemplates(prev => [t, ...prev])
+    } catch { /* ignore */ }
+  }
+
+  const handleDeleteTemplate = async (id: string) => {
+    try {
+      await promptService.remove(id)
+      setTemplates(prev => prev.filter(t => t.template_id !== id))
+    } catch { /* ignore */ }
+  }
+
   const runAnalysis = async () => {
     if (!activeFile || analysisLoading) return
     setAnalysisLoading(true); setAnalysisError(null); setAnalysis(null)
     try {
       const data = await imageService.analyze(activeFile)
       setAnalysis(data)
-    } catch (e: any) {
-      setAnalysisError(getErrorInfo(e))
-    } finally { setAnalysisLoading(false) }
+    } catch (e: any) { setAnalysisError(getErrorInfo(e)) }
+    finally { setAnalysisLoading(false) }
   }
+  const retryAnalysis = () => runAnalysis()
 
-  const retryAnalysis = () => {
-    runAnalysis()
-  }
-
-  // ── Suggestions ───────────────────────────────────────────────────────────
   const runSuggestions = async () => {
     if (!activeFile || suggestionsLoading) return
     setSuggestionsLoading(true); setSuggestionsError(null); setSuggestions([])
     try {
       const data = await imageService.getSuggestions(activeFile)
       setSuggestions(data.suggestions)
-    } catch (e: any) {
-      setSuggestionsError(getErrorInfo(e))
-    } finally { setSuggestionsLoading(false) }
+    } catch (e: any) { setSuggestionsError(getErrorInfo(e)) }
+    finally { setSuggestionsLoading(false) }
   }
+  const retrySuggestions = () => runSuggestions()
 
-  const retrySuggestions = () => {
-    runSuggestions()
-  }
-
-  // ── Captions ──────────────────────────────────────────────────────────────
   const runCaptions = async (style: CaptionStyle = captionStyle) => {
     if (!activeFile || captionsLoading) return
     setCaptionsLoading(true); setCaptionsError(null); setCaptions([]); setSelectedCaption(null)
     try {
       const data = await imageService.generateCaptions(activeFile, style)
       setCaptions(data.captions)
-    } catch (e: any) {
-      setCaptionsError(getErrorInfo(e))
-    } finally { setCaptionsLoading(false) }
+    } catch (e: any) { setCaptionsError(getErrorInfo(e)) }
+    finally { setCaptionsLoading(false) }
   }
-
-  const retryCaptions = () => {
-    runCaptions()
-  }
+  const retryCaptions = () => runCaptions()
 
   const handleStyleChange = (s: CaptionStyle) => {
     setCaptionStyle(s)
@@ -491,53 +740,61 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
     catch { /* ignore */ }
   }
 
-  // ─── Position ─────────────────────────────────────────────────────────────
-  const posClass = position === 'bottom-left' ? 'left-6' : 'right-6'
+  const isTop = position.startsWith('top')
+  const isLeft = position.endsWith('left')
+  const panelSideClass = isLeft ? 'left-6' : 'right-6'
+  const panelVerticalClass = isTop ? 'top-[5.5rem]' : 'bottom-[5.5rem]'
+  const triggerVerticalClass = isTop ? 'top-6' : 'bottom-6'
 
-  // ─── Mode metadata ────────────────────────────────────────────────────────
-  const modes: { id: Mode; label: string; icon: React.ReactNode; color: string }[] = [
-    {
-      id: 'chat', label: 'Chat', color: 'indigo',
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-    },
-    {
-      id: 'analysis', label: 'Analyze', color: 'emerald',
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-    },
-    {
-      id: 'suggestions', label: 'Suggest', color: 'amber',
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-    },
-    {
-      id: 'captions', label: 'Caption', color: 'violet',
-      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
-    },
+  const positionOptions: { id: Position; label: string }[] = [
+    { id: 'bottom-right', label: 'Bottom Right' },
+    { id: 'bottom-left', label: 'Bottom Left' },
+    { id: 'top-right', label: 'Top Right' },
+    { id: 'top-left', label: 'Top Left' },
   ]
 
-  // ─── Render mode content ──────────────────────────────────────────────────
+  const modes: { id: Mode; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: 'chat', label: 'Chat', color: 'indigo', icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg> },
+    { id: 'analysis', label: 'Analyze', color: 'emerald', icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
+    { id: 'suggestions', label: 'Suggest', color: 'amber', icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg> },
+    { id: 'captions', label: 'Caption', color: 'violet', icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg> },
+  ]
+
+  const charCount = chatInput.length
+  const charPct = charCount / MAX_CHARS
+  const charColor = charPct >= 1 ? 'text-danger' : charPct >= 0.9 ? 'text-amber-500' : 'text-muted'
 
   const renderModeContent = () => {
-    // ── CHAT ──
     if (mode === 'chat') {
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* Image context strip */}
           {activeFile && (
             <div className="px-3 pt-2 shrink-0">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-success/5 border border-success/20 rounded-xl">
                 {activePreviewUrl && <img src={activePreviewUrl} alt="" className="w-6 h-6 rounded object-cover" />}
                 <p className="text-[10px] text-success font-semibold truncate flex-1">Image context loaded — AI can see your image</p>
+                <button onClick={handleRemoveImage} title="Remove image" className="text-success/70 hover:text-danger transition-colors shrink-0">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
             </div>
           )}
-
-          {/* Messages */}
+          {editingId && (
+            <div className="px-3 pt-2 shrink-0">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-magenta/5 border border-magenta/20 rounded-xl">
+                <p className="text-[10px] text-magenta font-semibold">Editing message — resend to replace it</p>
+                <button onClick={() => { setEditingId(null); setChatInput('') }} className="text-magenta/70 hover:text-danger transition-colors">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-none">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-4 py-6">
                 <p className="text-xs font-bold text-primary">Start a conversation</p>
                 <p className="text-[10px] text-secondary mt-1 leading-relaxed">
-                  {activeFile ? 'I can see your image. Ask anything about it!' : 'Upload an image above or ask a general question.'}
+                  {activeFile ? 'I can see your image. Ask anything about it!' : 'Upload an image below or ask a general question.'}
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
                   {getSuggestionsForPath(currentPath).map(chip => (
@@ -550,7 +807,23 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
               </div>
             ) : (
               <>
-                {messages.map(msg => <WidgetMessage key={msg.id} role={msg.role} content={msg.content} thinking={msg.thinking} />)}
+                {messages.map(msg => (
+                  <WidgetMessage
+                    key={msg.id}
+                    id={msg.id}
+                    role={msg.role}
+                    content={msg.content}
+                    thinking={msg.thinking}
+                    copied={copiedMessageId === msg.id}
+                    onCopy={msg.role === 'assistant' ? () => handleCopyMessage(msg.id, msg.content) : undefined}
+                    onEdit={msg.role === 'user' ? () => handleEditMessage(msg.id, msg.content) : undefined}
+                    onResend={msg.role === 'user' ? () => handleResendMessage(msg.content) : undefined}
+                    onDelete={() => handleDeleteMessage(msg.id)}
+                    onFavorite={msg.role === 'assistant' ? () => handleToggleFavorite(msg.id, msg.content) : undefined}
+                    favorited={favoritedIds.has(msg.id)}
+                    topic={msg.topic}
+                  />
+                ))}
                 {chatLoading && (
                   <div className="flex gap-2 mr-auto">
                     <div className="w-6 h-6 rounded-lg bg-teal/10 border border-teal/20 flex items-center justify-center shrink-0">
@@ -560,41 +833,84 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
                   </div>
                 )}
                 {chatError && (
-                  <ErrorDisplay 
-                    error={chatError} 
-                    onRetry={chatError.retryable ? retryChat : undefined}
-                    onDismiss={() => setChatError(null)}
-                  />
+                  <ErrorDisplay error={chatError} onRetry={chatError.retryable ? retryChat : undefined} onDismiss={() => setChatError(null)} />
+                )}
+                {!chatLoading && !chatError && messages.length > 0 && messages[messages.length - 1].role === 'assistant' && (
+                  <div className="flex flex-wrap gap-1.5 pl-8">
+                    {buildFollowUps(messages[messages.length - 1].topic).map(chip => (
+                      <button key={chip} onClick={() => { setChatInput(chip); chatInputRef.current?.focus() }}
+                        className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-teal/10 border border-teal/20 text-teal hover:bg-teal/20 transition-all">
+                        {chip}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </>
             )}
             <div ref={bottomRef} />
           </div>
-
-          {/* Input */}
-          <div className="border-t border-border bg-surface-raised p-2.5 flex gap-2 items-end shrink-0">
-            {messages.length > 0 && (
-              <button onClick={() => { setMessages([]); setChatError(null); setPendingChatMessage(null) }} title="Clear"
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 transition-all mb-[1px] shrink-0">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              </button>
+          <div className="border-t border-border bg-surface-raised p-2.5 flex flex-col gap-1.5 shrink-0">
+            {showTemplates && (
+              <div className="rounded-xl border border-border bg-surface p-2 max-h-40 overflow-y-auto space-y-1">
+                {templatesLoading && <p className="text-[10px] text-muted px-1">Loading...</p>}
+                {!templatesLoading && templates.length === 0 && (
+                  <p className="text-[10px] text-muted px-1">No saved templates yet.</p>
+                )}
+                {templates.map(t => (
+                  <div key={t.template_id} className="flex items-center gap-2 group">
+                    <button onClick={() => handleUseTemplate(t)}
+                      className="flex-1 text-left px-2 py-1 rounded-lg text-[11px] text-secondary hover:text-primary hover:bg-surface-raised transition-all truncate">
+                      {t.title}
+                    </button>
+                    <button onClick={() => handleDeleteTemplate(t.template_id)} title="Delete"
+                      className="opacity-0 group-hover:opacity-100 text-muted hover:text-danger transition-all shrink-0 px-1">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                ))}
+                <button onClick={handleSaveTemplate} disabled={!chatInput.trim()}
+                  className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-semibold text-magenta hover:bg-magenta/5 transition-all disabled:opacity-30">
+                  + Save current input as template
+                </button>
+              </div>
             )}
-            <textarea ref={chatInputRef} value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={handleChatKey}
-              disabled={chatLoading} rows={1} placeholder="Ask something..."
-              className="flex-1 bg-surface border border-border rounded-xl px-3 py-2 text-[12.5px] text-primary placeholder-muted outline-none resize-none focus:border-magenta focus:ring-1 focus:ring-magenta/30 transition-all scrollbar-none"
-              style={{ height: '36px' }}
-              onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = '36px'; t.style.height = Math.min(t.scrollHeight, 100) + 'px' }} />
-            <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim()}
-              className="w-9 h-9 rounded-xl bg-magenta hover:bg-magenta/90 text-white flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-md shrink-0">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-            </button>
+            <div className="flex gap-2 items-end">
+              {messages.length > 0 && (
+                <button onClick={() => { setMessages([]); setChatError(null); setPendingChatMessage(null); setEditingId(null) }} title="Clear"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-danger hover:bg-danger/10 transition-all mb-[1px] shrink-0">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              )}
+              <button onClick={handleChatAttachClick} title="Attach image"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-magenta hover:bg-magenta/10 transition-all mb-[1px] shrink-0">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+              </button>
+              <input ref={chatFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleChatFileSelected} />
+              <button onClick={toggleTemplates} title="Prompt templates"
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all mb-[1px] shrink-0 ${showTemplates ? 'text-magenta bg-magenta/10' : 'text-muted hover:text-magenta hover:bg-magenta/10'}`}>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              </button>
+              <textarea ref={chatInputRef} value={chatInput}
+                onChange={e => setChatInput(e.target.value.slice(0, MAX_CHARS))}
+                onKeyDown={handleChatKey}
+                disabled={chatLoading} rows={1} placeholder="Ask something..."
+                maxLength={MAX_CHARS}
+                className="flex-1 bg-surface border border-border rounded-xl px-3 py-2 text-[12.5px] text-primary placeholder-muted outline-none resize-none focus:border-magenta focus:ring-1 focus:ring-magenta/30 transition-all scrollbar-none"
+                style={{ height: '36px', maxHeight: '140px' }}
+                onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = '36px'; t.style.height = Math.min(t.scrollHeight, 140) + 'px' }} />
+              <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim()}
+                className="w-9 h-9 rounded-xl bg-magenta hover:bg-magenta/90 text-white flex items-center justify-center transition-all active:scale-90 disabled:opacity-30 shadow-md shrink-0">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+              </button>
+            </div>
+            <div className="flex justify-end px-1">
+              <span className={`text-[9.5px] font-medium tabular-nums ${charColor}`}>{charCount}/{MAX_CHARS}</span>
+            </div>
           </div>
         </div>
       )
     }
 
-
-    // ── ANALYSIS ──
     if (mode === 'analysis') {
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -602,19 +918,11 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
             <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
             <button onClick={runAnalysis} disabled={!activeFile || analysisLoading}
               className="w-full py-2 rounded-xl bg-teal hover:bg-teal/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
-              {analysisLoading
-                ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Analyzing...</>
-                : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>Run Visual Analysis</>}
+              {analysisLoading ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Analyzing...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>Run Visual Analysis</>}
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2 scrollbar-none">
-            {analysisError && (
-              <ErrorDisplay 
-                error={analysisError} 
-                onRetry={analysisError.retryable ? retryAnalysis : undefined}
-                onDismiss={() => setAnalysisError(null)}
-              />
-            )}
+            {analysisError && <ErrorDisplay error={analysisError} onRetry={analysisError.retryable ? retryAnalysis : undefined} onDismiss={() => setAnalysisError(null)} />}
             {analysis && !analysisLoading && (
               <div className="space-y-2">
                 {[
@@ -651,7 +959,6 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       )
     }
 
-    // ── SUGGESTIONS ──
     if (mode === 'suggestions') {
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -659,19 +966,11 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
             <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
             <button onClick={runSuggestions} disabled={!activeFile || suggestionsLoading}
               className="w-full py-2 rounded-xl bg-magenta hover:bg-magenta/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
-              {suggestionsLoading
-                ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating...</>
-                : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>Get Background Suggestions</>}
+              {suggestionsLoading ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Generating...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>Get Background Suggestions</>}
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2 scrollbar-none">
-            {suggestionsError && (
-              <ErrorDisplay 
-                error={suggestionsError} 
-                onRetry={suggestionsError.retryable ? retrySuggestions : undefined}
-                onDismiss={() => setSuggestionsError(null)}
-              />
-            )}
+            {suggestionsError && <ErrorDisplay error={suggestionsError} onRetry={suggestionsError.retryable ? retrySuggestions : undefined} onDismiss={() => setSuggestionsError(null)} />}
             {suggestions.length > 0 && !suggestionsLoading && (
               <div className="space-y-2">
                 {suggestions.map((sug, i) => (
@@ -692,8 +991,6 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       )
     }
 
-
-    // ── CAPTIONS ──
     if (mode === 'captions') {
       const stylesList: { id: CaptionStyle; label: string }[] = [
         { id: 'casual', label: 'Casual' },
@@ -706,52 +1003,35 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
         <div className="flex flex-col flex-1 overflow-hidden">
           <div className="p-3 space-y-2 shrink-0">
             <MiniUploader file={activeFile} previewUrl={activePreviewUrl} onUpload={handleUpload} onRemove={handleRemoveImage} />
-            {/* Style selector */}
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
               {stylesList.map(s => (
                 <button key={s.id} onClick={() => handleStyleChange(s.id)}
-                  className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
-                    captionStyle === s.id ? 'bg-magenta/20 border-magenta/40 text-magenta' : 'bg-surface border border-border text-secondary hover:text-primary hover:border-magenta'
-                  }`}>
+                  className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${captionStyle === s.id ? 'bg-magenta/20 border-magenta/40 text-magenta' : 'bg-surface border border-border text-secondary hover:text-primary hover:border-magenta'}`}>
                   {s.label}
                 </button>
               ))}
             </div>
             <button onClick={() => runCaptions(captionStyle)} disabled={!activeFile || captionsLoading}
               className="w-full py-2 rounded-xl bg-teal hover:bg-teal/90 text-xs font-bold text-white transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-2 shadow-md">
-              {captionsLoading
-                ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Writing captions...</>
-                : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>Generate Captions</>}
+              {captionsLoading ? <><span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />Writing captions...</> : <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>Generate Captions</>}
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-2 scrollbar-none">
-            {captionsError && (
-              <ErrorDisplay 
-                error={captionsError} 
-                onRetry={captionsError.retryable ? retryCaptions : undefined}
-                onDismiss={() => setCaptionsError(null)}
-              />
-            )}
+            {captionsError && <ErrorDisplay error={captionsError} onRetry={captionsError.retryable ? retryCaptions : undefined} onDismiss={() => setCaptionsError(null)} />}
             {captions.length > 0 && !captionsLoading && (
               <div className="space-y-2">
                 <p className="text-[9px] font-black uppercase tracking-widest text-muted px-1">Click a caption to copy it</p>
                 {captions.map((cap, i) => (
                   <div key={i} onClick={() => setSelectedCaption(i)}
-                    className={`rounded-xl border p-3 cursor-pointer transition-all ${
-                      selectedCaption === i ? 'border-magenta/40 bg-magenta/5' : 'border-border bg-surface hover:border-border-strong'
-                    }`}>
+                    className={`rounded-xl border p-3 cursor-pointer transition-all ${selectedCaption === i ? 'border-magenta/40 bg-magenta/5' : 'border-border bg-surface hover:border-border-strong'}`}>
                     <div className="flex items-start gap-2">
-                      <span className={`w-4 h-4 rounded shrink-0 flex items-center justify-center text-[9px] font-black border ${
-                        selectedCaption === i ? 'bg-magenta border-magenta text-white' : 'bg-surface-raised border-border text-muted'
-                      }`}>{i + 1}</span>
+                      <span className={`w-4 h-4 rounded shrink-0 flex items-center justify-center text-[9px] font-black border ${selectedCaption === i ? 'bg-magenta border-magenta text-white' : 'bg-surface-raised border-border text-muted'}`}>{i + 1}</span>
                       <p className="text-[11.5px] text-secondary italic leading-relaxed">"{cap}"</p>
                     </div>
                     {selectedCaption === i && (
                       <button onClick={e => { e.stopPropagation(); copyCaption(cap, i) }}
                         className="mt-2 ml-6 px-3 py-1 rounded-lg bg-magenta hover:bg-magenta/90 text-[10px] font-bold text-white flex items-center gap-1.5 transition-all active:scale-95">
-                        {copiedCaption === i
-                          ? <><svg className="w-3.5 h-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg><span className="text-success">Copied!</span></>
-                          : <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 00-2 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>Copy</>}
+                        {copiedCaption === i ? <><svg className="w-3.5 h-3.5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg><span className="text-success">Copied!</span></> : <><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 00-2 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>Copy</>}
                       </button>
                     )}
                   </div>
@@ -768,84 +1048,192 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
       )
     }
 
-
     return null
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  const panelWidthStyle: React.CSSProperties = isFullscreen
+    ? { width: 'calc(100vw - 24px)', height: 'calc(100vh - 24px)', top: '12px', bottom: '12px', left: isLeft ? '12px' : undefined, right: !isLeft ? '12px' : undefined }
+    : {
+        width: `${size.width}px`,
+        maxWidth: 'calc(100vw - 24px)',
+        height: `${size.height}px`,
+        maxHeight: 'calc(100vh - 96px)',
+        [isTop ? 'top' : 'bottom']: '88px',
+        [isLeft ? 'left' : 'right']: '24px',
+      }
+
+  // Escape key always closes the widget, even if it somehow renders off-screen.
+  useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isOpen])
 
   return (
     <>
-      {/* Widget Panel */}
-      <div className={`fixed bottom-[5.5rem] ${posClass} z-[9999] transition-all duration-300 ease-out ${
-        isOpen ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
-      }`} style={{ width: '480px', maxWidth: 'calc(100vw - 24px)' }}>
-        <div className="flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-border bg-surface backdrop-blur-md"
-          style={{ height: 'min(82vh, 680px)' }}>
+      {isMinimized && isOpen && (
+        <button
+          onClick={() => setIsMinimized(false)}
+          className={`fixed ${panelSideClass} ${triggerVerticalClass} z-[9999] flex items-center gap-2 pl-2 pr-3 py-2 rounded-full bg-surface border border-border shadow-lg hover:shadow-xl transition-all`}
+        >
+          <span className="w-6 h-6 rounded-full bg-gradient-brand flex items-center justify-center shrink-0">
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+          </span>
+          <span className="text-[11px] font-bold text-primary">AI Assistant</span>
+          {unread > 0 && <span className="w-4 h-4 rounded-full bg-danger text-white text-[9px] font-black flex items-center justify-center">{unread}</span>}
+        </button>
+      )}
 
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-raised shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center shadow-sm shrink-0">
-                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+      {!isMinimized && (
+        <div
+          className={`fixed ${isFullscreen ? 'inset-3' : `${panelSideClass} ${panelVerticalClass}`} z-[9999] transition-all duration-300 ease-out ${isOpen ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 translate-y-4 pointer-events-none'}`}
+          style={isOpen ? panelWidthStyle : undefined}
+        >
+          <div className="relative flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-border bg-surface w-full h-full">
+            {!isFullscreen && (
+              <div
+                onMouseDown={startResize}
+                title="Drag to resize"
+                className={`absolute ${isTop ? 'bottom-0' : 'top-0'} ${isLeft ? 'right-0' : 'left-0'} w-5 h-5 z-10 flex items-center justify-center cursor-nwse-resize opacity-40 hover:opacity-100 transition-opacity`}
+                style={{ cursor: (isLeft === isTop) ? 'nesw-resize' : 'nwse-resize' }}
+              >
+                <svg className="w-3 h-3 text-muted" viewBox="0 0 16 16" fill="currentColor">
+                  <circle cx="12" cy="4" r="1.2" /><circle cx="12" cy="8" r="1.2" /><circle cx="12" cy="12" r="1.2" />
+                  <circle cx="8" cy="8" r="1.2" /><circle cx="8" cy="12" r="1.2" /><circle cx="4" cy="12" r="1.2" />
+                </svg>
               </div>
-              <div>
-                <p className="text-sm font-bold text-primary leading-none">AI Assistant</p>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                  <p className="text-[9px] text-success font-semibold tracking-wide">
-                    {activeFile ? `Image loaded · ${activeFile.name.slice(0, 18)}...` : 'Online · Ready'}
-                  </p>
+            )}
+
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-raised shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center shadow-sm shrink-0">
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-primary leading-none truncate">AI Assistant</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" />
+                    <p className="text-[9px] text-success font-semibold tracking-wide truncate">
+                      {activeFile ? `Image loaded · ${activeFile.name.slice(0, 18)}...` : 'Online · Ready'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            {activePreviewUrl && (
-              <img src={activePreviewUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-border opacity-80 mx-2" />
-            )}
-            <button onClick={() => setIsOpen(false)}
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-raised transition-all">
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
 
-          {/* Mode Tabs */}
-          <div className="flex border-b border-border bg-surface-raised shrink-0">
-            {modes.map(m => {
-              const isActive = mode === m.id
-              return (
-                <button key={m.id} onClick={() => setMode(m.id)}
-                  className={`flex-1 flex flex-col items-center gap-1 py-3 text-[11px] font-bold transition-all border-b-2 ${
-                    isActive
-                      ? 'border-magenta text-magenta bg-magenta/5'
-                      : 'border-transparent text-secondary hover:text-primary hover:bg-surface'
-                  }`}>
-                  {m.icon}
-                  {m.label}
+              <div className="flex items-center gap-1 shrink-0">
+                <div className="relative" ref={positionMenuRef}>
+                  <button onClick={() => setShowPositionMenu(v => !v)} title="Move widget"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface transition-all">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" /></svg>
+                  </button>
+                  {showPositionMenu && (
+                    <div className="absolute right-0 top-full mt-1 w-36 rounded-lg border border-border bg-surface shadow-lg z-50 overflow-hidden animate-fade-up">
+                      {positionOptions.map(opt => (
+                        <button key={opt.id} onClick={() => { setPosition(opt.id); setShowPositionMenu(false) }}
+                          className={`w-full text-left px-3 py-1.5 text-[11px] font-medium transition-colors ${position === opt.id ? 'text-magenta bg-magenta/5' : 'text-secondary hover:text-primary hover:bg-surface-raised'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                      <div className="border-t border-border" />
+                      {(Object.keys(SIZE_PRESETS) as SizeKey[]).map(key => (
+                        <button key={key} onClick={() => { applySizePreset(key); setShowPositionMenu(false) }}
+                          className="w-full text-left px-3 py-1.5 text-[11px] font-medium text-secondary hover:text-primary hover:bg-surface-raised transition-colors capitalize">
+                          {key} size
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <button onClick={() => setIsMinimized(true)} title="Minimize"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface transition-all">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14" /></svg>
                 </button>
-              )
-            })}
+
+                <button onClick={() => setIsFullscreen(v => !v)} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface transition-all">
+                  {isFullscreen ? (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9L4 4m0 0v4m0-4h4m7 5l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4m6-5l5 5m0 0v-4m0 4h-4" /></svg>
+                  ) : (
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                  )}
+                </button>
+
+                {mode !== 'chat' && (
+                  <button onClick={toggleBatch} title="Batch mode"
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${showBatch ? 'text-magenta bg-magenta/10' : 'text-secondary hover:text-primary hover:bg-surface'}`}>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5h16M4 12h16M4 19h16" /></svg>
+                  </button>
+                )}
+                {activePreviewUrl && <img src={activePreviewUrl} alt="" className="w-8 h-8 rounded-lg object-cover border border-border opacity-80 mx-1" />}
+                <button onClick={() => setIsOpen(false)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-secondary hover:text-primary hover:bg-surface transition-all">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex border-b border-border bg-surface-raised shrink-0">
+              {modes.map(m => {
+                const isActive = mode === m.id
+                return (
+                  <button key={m.id} onClick={() => setMode(m.id)}
+                    className={`flex-1 flex flex-col items-center gap-1 py-3 text-[11px] font-bold transition-all border-b-2 ${isActive ? 'border-magenta text-magenta bg-magenta/5' : 'border-transparent text-secondary hover:text-primary hover:bg-surface'}`}>
+                    {m.icon}
+                    {m.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {showBatch && mode !== 'chat' && (
+              <div className="p-3 border-b border-border bg-surface-raised space-y-2 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => batchFileInputRef.current?.click()}
+                    className="flex-1 py-1.5 rounded-lg border border-dashed border-border text-[10px] font-semibold text-secondary hover:text-primary hover:border-magenta transition-all">
+                    {batchFiles.length > 0 ? `${batchFiles.length} image(s) selected` : 'Select up to 10 images'}
+                  </button>
+                  <input ref={batchFileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleBatchFilesSelected} />
+                  <button onClick={runBatch} disabled={batchFiles.length === 0 || batchRunning}
+                    className="px-3 py-1.5 rounded-lg bg-magenta hover:bg-magenta/90 text-[10px] font-bold text-white transition-all disabled:opacity-30">
+                    {batchRunning ? 'Running...' : 'Run batch'}
+                  </button>
+                </div>
+                {batchResults.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {batchResults.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[10px]">
+                        <span className={`w-3 h-3 rounded-full shrink-0 flex items-center justify-center ${r.status === 'done' ? 'bg-success/20 text-success' : r.status === 'error' ? 'bg-danger/20 text-danger' : 'bg-muted/20 text-muted animate-pulse'}`} />
+                        <span className="font-semibold text-primary shrink-0 max-w-[80px] truncate">{r.name}</span>
+                        <span className="text-secondary truncate">{r.summary}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {renderModeContent()}
           </div>
+        </div>
+      )}
 
-          {/* Mode Content */}
-          {renderModeContent()}
-        </div>
-      </div>
-
-      {/* Floating Trigger Button */}
-      <button onClick={() => { setIsOpen(o => !o); setUnread(0) }}
-        className={`fixed bottom-6 ${posClass} z-[9999] w-14 h-14 rounded-2xl bg-gradient-brand text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 border border-white/10 transition-all duration-300`}>
-        <div className={`transition-all duration-300 absolute ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-        </div>
-        <div className={`transition-all duration-300 absolute ${isOpen ? 'opacity-0 scale-50' : 'opacity-100 scale-100'}`}>
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-        </div>
-        {unread > 0 && !isOpen && (
-          <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-[10px] font-black flex items-center justify-center border-2 border-surface">
-            {unread}
-          </span>
-        )}
-      </button>
+      {(!isOpen || isMinimized) && (
+        <button onClick={() => { setIsOpen(o => !o); setIsMinimized(false); setUnread(0) }}
+          className={`fixed ${triggerVerticalClass} ${panelSideClass} z-[9999] w-14 h-14 rounded-2xl bg-gradient-brand text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 border border-white/10 transition-all duration-300 ${isMinimized && isOpen ? 'hidden' : ''}`}>
+          <div className={`transition-all duration-300 absolute ${isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+          </div>
+          <div className={`transition-all duration-300 absolute ${isOpen ? 'opacity-0 scale-50' : 'opacity-100 scale-100'}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+          </div>
+          {unread > 0 && !isOpen && (
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-danger text-white text-[10px] font-black flex items-center justify-center border-2 border-surface">
+              {unread}
+            </span>
+          )}
+        </button>
+      )}
     </>
   )
 }

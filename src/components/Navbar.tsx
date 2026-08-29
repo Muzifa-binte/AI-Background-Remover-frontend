@@ -64,6 +64,23 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    to: '/prompts', label: 'Prompts', end: false,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+        <path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9zm2 1.75A.75.75 0 014.75 4.5h6.5a.75.75 0 010 1.5h-6.5A.75.75 0 014 5.25zm0 3A.75.75 0 014.75 7.5h6.5a.75.75 0 010 1.5h-6.5A.75.75 0 014 8.25zm0 3a.75.75 0 01.75-.75h3.5a.75.75 0 010 1.5h-3.5a.75.75 0 01-.75-.75z" clipRule="evenodd" />
+      </svg>
+    ),
+  },
+  {
+    to: '/analytics', label: 'Analytics', end: false,
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+        <path d="M1.75 14A.75.75 0 011 13.25V2.75a.75.75 0 011.5 0v9.75H14a.75.75 0 010 1.5H1.75z" />
+        <path d="M14.53 4.03a.75.75 0 00-1.06-1.06L9 7.44 6.53 4.97a.75.75 0 00-1.06 0l-3.5 3.5a.75.75 0 101.06 1.06L6 6.56l2.47 2.47a.75.75 0 001.06 0l5-5z" />
+      </svg>
+    ),
+  },
 ]
 
 // ── Reusable nav link with icon ────────────────────────────────────────────
