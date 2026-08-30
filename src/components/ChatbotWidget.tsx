@@ -408,6 +408,23 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [mode, setMode] = useState<Mode>('chat')
   const [unread, setUnread] = useState(0)
 
+  // Handle custom event to open chatbot in specific mode
+  useEffect(() => {
+    const handleOpenChatbot = (e: Event) => {
+      const customEvent = e as CustomEvent<{ mode?: Mode }>
+      if (customEvent.detail?.mode) {
+        setMode(customEvent.detail.mode)
+      }
+      setIsOpen(true)
+      setIsMinimized(false)
+    }
+    
+    window.addEventListener('open-chatbot', handleOpenChatbot)
+    return () => {
+      window.removeEventListener('open-chatbot', handleOpenChatbot)
+    }
+  }, [])
+
   const [position, setPosition] = useState<Position>(initialPosition)
   const [size, setSize] = useState<{ width: number; height: number }>(SIZE_PRESETS.standard)
   const [isFullscreen, setIsFullscreen] = useState(false)

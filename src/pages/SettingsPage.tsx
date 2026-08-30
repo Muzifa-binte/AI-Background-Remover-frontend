@@ -164,7 +164,7 @@ function DashboardTab() {
               <span className="text-lg font-bold text-primary">{stats?.operations?.smart_crop || 0}</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-xs text-muted">Recolor</span>
+              <span className="text-xs text-muted">Recolor & Eraser</span>
               <span className="text-lg font-bold text-primary">{stats?.operations?.recolor || 0}</span>
             </div>
           </div>

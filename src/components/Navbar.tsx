@@ -10,89 +10,39 @@ import axios from 'axios'
 const NAV_ITEMS = [
   {
     to: '/', label: 'Remove/Replace BG', end: true,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path d="M8.75 2.75a.75.75 0 00-1.5 0v5.69L5.03 6.22a.75.75 0 00-1.06 1.06l3.5 3.5a.75.75 0 001.06 0l3.5-3.5a.75.75 0 00-1.06-1.06L8.75 8.44V2.75z" />
-        <path d="M3.5 9.75a.75.75 0 00-1.5 0v1.5A2.75 2.75 0 004.75 14h6.5A2.75 2.75 0 0014 11.25v-1.5a.75.75 0 00-1.5 0v1.5c0 .69-.56 1.25-1.25 1.25h-6.5c-.69 0-1.25-.56-1.25-1.25v-1.5z" />
-      </svg>
-    ),
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">✂️</span>),
   },
   {
     to: '/enhance', label: 'Enhance', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M8 1.5a.75.75 0 01.75.75v1a.75.75 0 01-1.5 0v-1A.75.75 0 018 1.5zM3.05 3.05a.75.75 0 011.06 0l.707.707A.75.75 0 113.757 4.82l-.707-.707a.75.75 0 010-1.062zm9.9 0a.75.75 0 010 1.06l-.706.708a.75.75 0 11-1.061-1.061l.707-.707a.75.75 0 011.06 0zM8 6a2 2 0 100 4A2 2 0 008 6zm-5.5 2a.75.75 0 000 1.5h1a.75.75 0 000-1.5h-1zm10 0a.75.75 0 000 1.5h1a.75.75 0 000-1.5h-1zm-2.136 3.728a.75.75 0 011.061 0l.707.707a.75.75 0 01-1.06 1.06l-.708-.706a.75.75 0 010-1.061zm-6.728 0a.75.75 0 010 1.06l-.707.708a.75.75 0 01-1.06-1.061l.707-.707a.75.75 0 011.06 0zM8 12.75a.75.75 0 01.75.75v1a.75.75 0 01-1.5 0v-1a.75.75 0 01.75-.75z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  {
-    to: '/shadow', label: 'Shadow/Glow', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zm3.844 4.574a.75.75 0 00-1.188-.918l-3.454 4.472-1.696-1.697a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.124-.096l4.024-5.07z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  {
-    to: '/recolor', label: 'Recolor', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zM5.5 8a2.5 2.5 0 115 0 2.5 2.5 0 01-5 0z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  {
-    to: '/magic-eraser', label: 'Magic Eraser', end: false,
     icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">✨</span>),
   },
   {
-    to: '/smart-crop', label: 'Smart Crop', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M4.5 2a.75.75 0 01.75.75V4h5.25a2.75 2.75 0 012.75 2.75v5.25h1.25a.75.75 0 010 1.5H13v.25a.75.75 0 01-1.5 0V13H4.75A2.75 2.75 0 012 10.25V5a.75.75 0 010-1.5h.25V2.75A.75.75 0 014.5 2zM3.5 5v5.25c0 .69.56 1.25 1.25 1.25H11.5V6.75c0-.69-.56-1.25-1.25-1.25H3.5z" clipRule="evenodd" />
-      </svg>
-    ),
+    to: '/shadow', label: 'Shadow/Glow', end: false,
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">💡</span>),
   },
   {
-    to: '/ai-analysis', label: 'AI Tools', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M8 1.5A6.5 6.5 0 1014.5 8 6.5 6.5 0 008 1.5zm.75 3.5a.75.75 0 011.5 0v1.75a.75.75 0 01-1.5 0V5zm-3 0a.75.75 0 011.5 0v1.75a.75.75 0 01-1.5 0V5zM8 11.5a3.5 3.5 0 01-3.5-3.5h7A3.5 3.5 0 018 11.5z" clipRule="evenodd" />
-      </svg>
-    ),
+    to: '/recolor-and-eraser', label: 'Recolor & Eraser', end: false,
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">🎨</span>),
+  },
+  {
+    to: '/smart-crop', label: 'Smart Crop', end: false,
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">🔲</span>),
   },
   {
     to: '/batch', label: 'Batch', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v2A1.5 1.5 0 0112.5 7h-9A1.5 1.5 0 012 5.5v-2zm1.5 0v2h9v-2h-9zM2 9.5A1.5 1.5 0 013.5 8h9A1.5 1.5 0 0114 9.5v2A1.5 1.5 0 0112.5 13h-9A1.5 1.5 0 012 11.5v-2zm1.5 0v2h9v-2h-9z" />
-      </svg>
-    ),
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">📁</span>),
   },
   {
     to: '/history', label: 'History', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M1 8a7 7 0 1114 0A7 7 0 011 8zm7.75-4.25a.75.75 0 00-1.5 0V8c0 .199.079.39.22.53l2.25 2.25a.75.75 0 101.06-1.06L8.75 7.94V3.75z" clipRule="evenodd" />
-      </svg>
-    ),
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">🕐</span>),
   },
   {
     to: '/prompts', label: 'Prompts', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h9A1.5 1.5 0 0114 3.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 12.5v-9zm2 1.75A.75.75 0 014.75 4.5h6.5a.75.75 0 010 1.5h-6.5A.75.75 0 014 5.25zm0 3A.75.75 0 014.75 7.5h6.5a.75.75 0 010 1.5h-6.5A.75.75 0 014 8.25zm0 3a.75.75 0 01.75-.75h3.5a.75.75 0 010 1.5h-3.5a.75.75 0 01-.75-.75z" clipRule="evenodd" />
-      </svg>
-    ),
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">📝</span>),
   },
   {
     to: '/analytics', label: 'Analytics', end: false,
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path d="M1.75 14A.75.75 0 011 13.25V2.75a.75.75 0 011.5 0v9.75H14a.75.75 0 010 1.5H1.75z" />
-        <path d="M14.53 4.03a.75.75 0 00-1.06-1.06L9 7.44 6.53 4.97a.75.75 0 00-1.06 0l-3.5 3.5a.75.75 0 101.06 1.06L6 6.56l2.47 2.47a.75.75 0 001.06 0l5-5z" />
-      </svg>
-    ),
+    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">📊</span>),
   },
 ]
 
