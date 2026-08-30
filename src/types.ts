@@ -7,6 +7,7 @@ export interface Message {
   thinking?: string | null
   action?: any
   timestamp: number
+  topic?: string
 }
 
 export interface ChatResponse {
@@ -55,6 +56,28 @@ export interface CaptionsResponse {
 
 export interface BackgroundSuggestionsResponse {
   suggestions: string[]
+}
+
+// ── Prompt Templates ─────────────────────────────────────────────────────────
+
+export interface PromptTemplate {
+  template_id: string
+  user_id: string
+  title: string
+  prompt_text: string
+  tags: string[]
+  use_count: number
+  created_at: string
+}
+
+// ── Favorites ─────────────────────────────────────────────────────────────
+
+export interface Favorite {
+  favorite_id: string
+  user_id: string
+  content: string
+  source: 'chat' | 'caption' | 'suggestion'
+  created_at: string
 }
 
 // ── Advanced Analysis ──────────────────────────────────────────────────────────

@@ -187,10 +187,49 @@ The backend must be running on port 8000 for the proxy to work in development.
 ### Next (for Web Team to pick up)
 - [ ] User authentication UI (login / register pages)
 - [ ] Background replacement panel (color picker, custom image upload)
-- [ ] Batch upload — multiple files at once
+- [x] Batch upload — via the AI Chatbot Widget (Analyze/Suggest/Caption modes)
 - [ ] Loading skeleton components (replace spinners)
 - [ ] Toast notification system for errors/success
 - [ ] Mobile layout polish
+
+---
+
+## AI Chatbot Widget
+
+A floating AI assistant (`src/components/ChatbotWidget.tsx`) available on every page, with four modes: **Chat**, **Analyze**, **Suggest**, and **Caption**.
+
+### Input Enhancements
+- Multi-line auto-expanding textarea (36px → 140px)
+- Live character counter (0/2000) with warning color near the limit
+- Image attachment with preview strip before sending
+- Per-message quick actions on hover: Edit & resend, Resend, Copy, Delete
+
+### Size & Positioning
+- Drag-to-resize panel from the corner grip
+- Four floating positions (bottom-right, bottom-left, top-right, top-left) via the position switcher
+- Size presets: compact / standard / large
+- Minimize to a small pill in the tray
+- Fullscreen mode for complex tasks
+- Panel position/size is clamped to the viewport so it can never render off-screen; `Esc` always closes the widget as a safety fallback
+
+### Quick Actions
+- **Template library** — save, reuse, and delete prompt templates (backend: `GET/POST /api/prompts`, `POST /api/prompts/{id}/use`, `DELETE /api/prompts/{id}`)
+- **Favorite responses** — star useful AI replies to save them (backend: `GET/POST /api/favorites`, `DELETE /api/favorites/{id}`)
+- **Batch operations** — run Analyze/Suggest/Caption on up to 10 images sequentially from one panel
+
+### Smart Conversations
+- **Context memory** — the last few conversation turns are included in each new request
+- **Topic detection** — messages are auto-tagged (background, lighting, crop, quality, caption, general) with a badge on assistant replies
+- **Intent recognition** — messages are classified as greeting / question / request / feedback / other
+- **Follow-up suggestions** — topic-relevant follow-up chips appear after each assistant reply
+
+### Related Services
+| File | Purpose |
+|------|---------|
+| `src/services/chatService.ts` | `POST /api/chat` |
+| `src/services/imageService.ts` | `POST /api/image/analyze`, `/captions`, `/suggestions` |
+| `src/services/promptService.ts` | Template library CRUD |
+| `src/services/favoriteService.ts` | Favorites CRUD |
 
 ---
 

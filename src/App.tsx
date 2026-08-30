@@ -31,6 +31,8 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const AIAnalysisPage = lazy(() => import('./pages/AIAnalysisPage'))
 const MagicEraserPage = lazy(() => import('./pages/MagicEraserPage'))
+const PromptTemplatesPage = lazy(() => import('./pages/PromptTemplatesPage'))
+const AnalyticsDashboardPage = lazy(() => import('./pages/AnalyticsDashboardPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // ── ChatbotWidget ──────────────────────────────────────────────────────────
@@ -75,6 +77,8 @@ function MainLayout() {
               <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
               <Route path="/ai-analysis" element={<ProtectedRoute><AIAnalysisPage /></ProtectedRoute>} />
+              <Route path="/prompts" element={<ProtectedRoute><PromptTemplatesPage /></ProtectedRoute>} />
+              <Route path="/analytics" element={<ProtectedRoute><AnalyticsDashboardPage /></ProtectedRoute>} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFoundPage />} />
@@ -107,4 +111,3 @@ export default function App() {
     </BrowserRouter>
   )
 }
-
