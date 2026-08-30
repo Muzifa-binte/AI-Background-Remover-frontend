@@ -1,11 +1,13 @@
 import { useState, FormEvent, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import { useThemeSettings, AccentTheme } from '../contexts/ThemeSettingsContext'
+import { SHORTCUT_LIST } from '../hooks/useKeyboardShortcuts'
+import CustomSlider from '../components/CustomSlider'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-type Tab = 'dashboard' | 'profile' | 'security' | 'danger'
-
+type Tab = 'dashboard' | 'appearance' | 'performance' | 'shortcuts' | 'profile' | 'security' | 'danger'
 
 function EyeIcon({ visible }: { visible: boolean }) {
   return visible ? (
@@ -41,10 +43,7 @@ function PasswordInput({
           value={value}
           onChange={e => onChange(e.target.value)}
           disabled={disabled}
-          className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-border bg-surface-raised
-            text-sm text-primary placeholder:text-muted
-            focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta/30
-            disabled:opacity-50"
+          className="w-full px-3.5 py-2.5 pr-10 rounded-lg border border-border bg-surface-raised text-sm text-primary placeholder:text-muted focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta/30 disabled:opacity-50"
         />
         <button
           type="button"
@@ -110,10 +109,9 @@ function DashboardTab() {
 
   return (
     <div className="flex flex-col gap-8 animate-fade-up">
-      {/* Account Info */}
       <div className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface-raised">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-magenta to-purple flex items-center justify-center text-white text-2xl font-bold shadow-inner">
-          {user?.name.charAt(0).toUpperCase()}
+        <div className="w-16 h-16 rounded-full bg-magenta text-white flex items-center justify-center text-2xl font-bold shadow-inner">
+          {user?.name?.charAt(0).toUpperCase() || 'U'}
         </div>
         <div>
           <h2 className="text-lg font-bold text-primary">{user?.name}</h2>
@@ -122,7 +120,6 @@ function DashboardTab() {
         </div>
       </div>
 
-      {/* Quota Progress */}
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-end">
           <h3 className="text-sm font-semibold text-primary">Daily Quota</h3>
@@ -131,29 +128,22 @@ function DashboardTab() {
           </span>
         </div>
         <div className="h-2.5 w-full bg-surface-raised rounded-full overflow-hidden border border-border">
-          <div 
+          <div
             className="h-full bg-gradient-to-r from-teal to-magenta transition-all duration-500 ease-out"
             style={{ width: `${Math.min(quotaPercent, 100)}%` }}
           />
         </div>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        
-        {/* Total Images */}
         <div className="p-4 rounded-xl border border-border bg-surface-raised flex flex-col gap-1">
           <span className="text-xs text-muted font-medium uppercase tracking-wider">Total Images</span>
           <span className="text-2xl font-bold text-primary">{stats?.total_images || 0}</span>
         </div>
-
-        {/* Storage */}
         <div className="p-4 rounded-xl border border-border bg-surface-raised flex flex-col gap-1">
           <span className="text-xs text-muted font-medium uppercase tracking-wider">Storage Used</span>
           <span className="text-2xl font-bold text-primary">{formatBytes(stats?.storage_bytes || 0)}</span>
         </div>
-
-        {/* Breakdown */}
         <div className="col-span-2 sm:col-span-3 p-4 rounded-xl border border-border bg-surface-raised">
           <h4 className="text-sm font-semibold text-primary mb-3">Usage Breakdown</h4>
           <div className="flex flex-wrap gap-x-8 gap-y-3">
@@ -184,11 +174,162 @@ function DashboardTab() {
   )
 }
 
+// ---------------- Appearance Tab ----------------
+function AppearanceTab() {
+  const { accent, setAccent } = useThemeSettings()
+  const { showToast } = useToast()
+
+  const THEMES: { id: AccentTheme; name: string; desc: string; color: string }[] = [
+    { id: 'gold', name: 'Amber Gold (Darkroom Luxury)', desc: 'Warm amber tones on ultra-deep black surfaces', color: '#F59E0B' },
+    { id: 'cyber', name: 'Cyber Neon (Magenta / Violet)', desc: 'Electric magenta & violet glow aesthetic', color: '#EC4899' },
+    { id: 'emerald', name: 'Emerald Mint (Cyan / Green)', desc: 'Crisp green & teal high-contrast matrix', color: '#10B981' },
+    { id: 'sapphire', name: 'Sapphire Electric (Blue / Indigo)', desc: 'Modern technical electric blue interface', color: '#3B82F6' },
+    { id: 'sunset', name: 'Sunset Coral (Orange / Rose)', desc: 'Warm coral gradient with high punch vibrancy', color: '#F97316' },
+  ]
+
+  return (
+    <div className="flex flex-col gap-6 animate-fade-up">
+      <div>
+        <h3 className="text-base font-bold text-primary">Accent Theme Selection</h3>
+        <p className="text-xs text-secondary mt-0.5">Customize the primary interface accent color across buttons, indicators, and glow accents.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {THEMES.map((th) => {
+          const isSelected = accent === th.id
+          return (
+            <div
+              key={th.id}
+              onClick={() => {
+                setAccent(th.id)
+                showToast(`Theme changed to ${th.name}`, 'info')
+              }}
+              className={`p-4 rounded-xl border cursor-pointer transition-all duration-150 flex items-center justify-between ${
+                isSelected
+                  ? 'border-magenta bg-magenta/10 shadow-sm ring-1 ring-magenta/40'
+                  : 'border-border bg-surface-raised hover:border-border-strong hover:bg-surface'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-6 h-6 rounded-full shadow-sm border border-white/20" style={{ backgroundColor: th.color }} />
+                <div>
+                  <h4 className="text-sm font-semibold text-primary">{th.name}</h4>
+                  <p className="text-xs text-muted">{th.desc}</p>
+                </div>
+              </div>
+              {isSelected && (
+                <span className="text-xs font-bold text-magenta uppercase tracking-wider">Active</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ---------------- Performance Tab ----------------
+function PerformanceTab() {
+  const {
+    clientCompression,
+    setClientCompression,
+    compressionQuality,
+    setCompressionQuality,
+    maxDimension,
+    setMaxDimension,
+  } = useThemeSettings()
+  const { showToast } = useToast()
+
+  return (
+    <div className="flex flex-col gap-6 animate-fade-up">
+      <div>
+        <h3 className="text-base font-bold text-primary">Client-Side Compression</h3>
+        <p className="text-xs text-secondary mt-0.5">Optimize images in the browser before sending to the AI model to save upload bandwidth and speed up processing.</p>
+      </div>
+
+      {/* Toggle */}
+      <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-surface-raised">
+        <div>
+          <h4 className="text-sm font-semibold text-primary">Enable Pre-Upload Compression</h4>
+          <p className="text-xs text-muted">Automatically downsamples massive files while preserving alpha masks.</p>
+        </div>
+        <input
+          type="checkbox"
+          checked={clientCompression}
+          onChange={(e) => {
+            setClientCompression(e.target.checked)
+            showToast(`Pre-upload compression ${e.target.checked ? 'enabled' : 'disabled'}`, 'info')
+          }}
+          className="w-5 h-5 accent-magenta cursor-pointer"
+        />
+      </div>
+
+      {clientCompression && (
+        <div className="space-y-5 p-4 rounded-xl border border-border bg-surface">
+          <CustomSlider
+            label="Target Image Quality"
+            value={Math.round(compressionQuality * 100)}
+            min={60}
+            max={100}
+            unit="%"
+            presets={[75, 85, 92, 98]}
+            onChange={(val) => setCompressionQuality(val / 100)}
+          />
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
+              Maximum Image Dimension
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1800, 2500, 4000].map((dim) => (
+                <button
+                  key={dim}
+                  type="button"
+                  onClick={() => setMaxDimension(dim)}
+                  className={`py-2 px-3 rounded-lg border text-xs font-mono font-medium transition-all ${
+                    maxDimension === dim
+                      ? 'bg-magenta/15 border-magenta text-magenta font-bold'
+                      : 'border-border bg-surface-raised text-secondary hover:border-border-strong'
+                  }`}
+                >
+                  {dim}px ({dim === 4000 ? '4K UHD' : dim === 2500 ? 'Standard HD' : 'Fast Web'})
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------- Shortcuts Tab ----------------
+function ShortcutsTab() {
+  return (
+    <div className="flex flex-col gap-6 animate-fade-up">
+      <div>
+        <h3 className="text-base font-bold text-primary">Global Keyboard Shortcuts</h3>
+        <p className="text-xs text-secondary mt-0.5">Use these keys anywhere in the app to boost your workflow speed.</p>
+      </div>
+
+      <div className="rounded-xl border border-border divide-y divide-border overflow-hidden bg-surface-raised">
+        {SHORTCUT_LIST.map((item) => (
+          <div key={item.key} className="flex items-center justify-between p-3.5 text-xs">
+            <span className="text-secondary font-medium">{item.description}</span>
+            <kbd className="px-2.5 py-1 font-mono text-[11px] font-bold bg-surface border border-border text-primary rounded shadow-xs">
+              {item.key}
+            </kbd>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ---------------- Profile Tab ----------------
 function ProfileTab() {
   const { user, refreshUser } = useAuth()
   const { showToast } = useToast()
-  
   const [name, setName] = useState(user?.name || '')
   const [busy, setBusy] = useState(false)
 
@@ -202,9 +343,7 @@ function ProfileTab() {
       await refreshUser()
       showToast('Profile updated successfully!', 'success')
     } catch (err) {
-      const msg = axios.isAxiosError(err) && err.response?.data?.detail
-        ? String(err.response.data.detail)
-        : 'Failed to update profile.'
+      const msg = axios.isAxiosError(err) && err.response?.data?.detail ? String(err.response.data.detail) : 'Failed to update profile.'
       showToast(msg, 'error')
     } finally {
       setBusy(false)
@@ -212,50 +351,37 @@ function ProfileTab() {
   }
 
   return (
-    <form onSubmit={handleUpdate} className="flex flex-col gap-6">
+    <form onSubmit={handleUpdate} className="flex flex-col gap-6 animate-fade-up">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="settings-name" className="text-sm font-medium text-secondary">
-          Display Name
-        </label>
+        <label htmlFor="settings-name" className="text-sm font-medium text-secondary">Display Name</label>
         <input
           id="settings-name"
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
           disabled={busy}
-          className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised
-            text-sm text-primary placeholder:text-muted
-            focus:outline-none focus:border-magenta focus:ring-1 focus:ring-magenta/30
-            disabled:opacity-50"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised text-sm text-primary placeholder:text-muted focus:outline-none focus:border-magenta disabled:opacity-50"
           placeholder="Enter your name"
           maxLength={80}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="settings-email" className="text-sm font-medium text-secondary">
-          Email Address
-        </label>
+        <label htmlFor="settings-email" className="text-sm font-medium text-secondary">Email Address</label>
         <input
           id="settings-email"
           type="email"
           value={user?.email || ''}
           disabled
-          className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised opacity-60 cursor-not-allowed
-            text-sm text-primary"
-          title="Email cannot be changed"
+          className="w-full px-3.5 py-2.5 rounded-lg border border-border bg-surface-raised opacity-60 cursor-not-allowed text-sm text-primary"
         />
-        <p className="text-xs text-muted mt-1">Your email address cannot be changed.</p>
       </div>
 
       <div className="flex justify-end pt-2">
         <button
           type="submit"
           disabled={busy || !name.trim() || name === user?.name}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg
-            bg-primary hover:bg-primary-hover text-surface font-semibold text-sm
-            transition-all active:scale-95
-            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+          className="btn-primary text-xs py-2.5 px-5"
         >
           {busy && <Spinner />}
           {busy ? 'Saving...' : 'Save changes'}
@@ -268,10 +394,9 @@ function ProfileTab() {
 // ---------------- Security Tab ----------------
 function SecurityTab() {
   const { showToast } = useToast()
-  
   const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword,     setNewPassword]     = useState('')
-  const [busy,            setBusy]            = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const canSubmit = currentPassword && newPassword.length >= 8 && !busy
 
@@ -283,15 +408,13 @@ function SecurityTab() {
     try {
       await axios.patch('/api/auth/password', {
         current_password: currentPassword,
-        new_password:     newPassword,
+        new_password: newPassword,
       })
       showToast('Password updated successfully!', 'success')
       setCurrentPassword('')
       setNewPassword('')
     } catch (err) {
-      const msg = axios.isAxiosError(err) && err.response?.data?.detail
-        ? String(err.response.data.detail)
-        : 'Failed to update password.'
+      const msg = axios.isAxiosError(err) && err.response?.data?.detail ? String(err.response.data.detail) : 'Failed to update password.'
       showToast(msg, 'error')
     } finally {
       setBusy(false)
@@ -299,7 +422,7 @@ function SecurityTab() {
   }
 
   return (
-    <form onSubmit={handleUpdate} className="flex flex-col gap-5">
+    <form onSubmit={handleUpdate} className="flex flex-col gap-5 animate-fade-up">
       <PasswordInput
         id="settings-current-password"
         label="Current Password"
@@ -308,9 +431,7 @@ function SecurityTab() {
         disabled={busy}
         autoComplete="current-password"
       />
-      
       <div className="border-t border-border/50 my-1" />
-
       <PasswordInput
         id="settings-new-password"
         label="New Password"
@@ -319,17 +440,12 @@ function SecurityTab() {
         disabled={busy}
         autoComplete="new-password"
       />
-      
       <p className="text-xs text-muted -mt-2">Password must be at least 8 characters long.</p>
-
       <div className="flex justify-end pt-2">
         <button
           type="submit"
           disabled={!canSubmit}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg
-            bg-primary hover:bg-primary-hover text-surface font-semibold text-sm
-            transition-all active:scale-95
-            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+          className="btn-primary text-xs py-2.5 px-5"
         >
           {busy && <Spinner />}
           {busy ? 'Updating...' : 'Update password'}
@@ -344,10 +460,9 @@ function DangerTab() {
   const { logout } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
-
   const [password, setPassword] = useState('')
-  const [confirm,  setConfirm]  = useState('')
-  const [busy,     setBusy]     = useState(false)
+  const [confirm, setConfirm] = useState('')
+  const [busy, setBusy] = useState(false)
 
   const CONFIRM_PHRASE = 'DELETE'
   const canDelete = password.length > 0 && confirm === CONFIRM_PHRASE && !busy
@@ -362,24 +477,18 @@ function DangerTab() {
       showToast('Your account has been permanently deleted.', 'success')
       navigate('/login', { replace: true })
     } catch (err) {
-      const msg = axios.isAxiosError(err) && err.response?.data?.detail
-        ? String(err.response.data.detail)
-        : 'Failed to delete account.'
+      const msg = axios.isAxiosError(err) && err.response?.data?.detail ? String(err.response.data.detail) : 'Failed to delete account.'
       showToast(msg, 'error')
       setBusy(false)
     }
   }
 
   return (
-    <form onSubmit={handleDelete} className="flex flex-col gap-6">
-      <div className="flex gap-3 px-4 py-3 rounded-lg bg-danger/5 border border-danger/20 text-sm text-danger">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
-          className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true">
-          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-        </svg>
+    <form onSubmit={handleDelete} className="flex flex-col gap-6 animate-fade-up">
+      <div className="flex gap-3 px-4 py-3 rounded-xl bg-danger/10 border border-danger/25 text-xs text-danger">
         <div>
-          <p className="font-semibold">This action is permanent and cannot be undone.</p>
-          <p className="mt-0.5 text-danger/80">All your images, history, and data will be permanently deleted.</p>
+          <p className="font-bold">Permanent Account Deletion</p>
+          <p className="mt-0.5 opacity-90">All your stored images, history, and workspace files will be immediately erased.</p>
         </div>
       </div>
 
@@ -394,7 +503,7 @@ function DangerTab() {
         />
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="settings-delete-confirm" className="text-sm font-medium text-secondary">
+          <label htmlFor="settings-delete-confirm" className="text-xs font-semibold text-secondary">
             Type <span className="font-mono font-bold text-danger">{CONFIRM_PHRASE}</span> to confirm
           </label>
           <input
@@ -404,12 +513,7 @@ function DangerTab() {
             onChange={e => setConfirm(e.target.value)}
             disabled={busy}
             placeholder={CONFIRM_PHRASE}
-            autoComplete="off"
-            spellCheck={false}
-            className="w-full px-3.5 py-2.5 rounded-lg border border-danger/30 bg-surface-raised
-              text-sm text-primary placeholder:text-muted
-              focus:outline-none focus:border-danger focus:ring-1 focus:ring-danger/20
-              disabled:opacity-50"
+            className="w-full px-3.5 py-2.5 rounded-lg border border-danger/30 bg-surface-raised text-sm text-primary focus:outline-none focus:border-danger disabled:opacity-50"
           />
         </div>
       </div>
@@ -419,102 +523,66 @@ function DangerTab() {
           id="settings-delete-account"
           type="submit"
           disabled={!canDelete}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-lg
-            bg-danger hover:bg-danger/90 text-white font-semibold text-sm
-            transition-all active:scale-95
-            disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+          className="px-5 py-2.5 rounded-lg bg-danger hover:bg-danger/90 text-white font-bold text-xs transition-all active:scale-95 disabled:opacity-40"
         >
           {busy && <Spinner />}
-          {busy ? 'Deleting...' : 'Permanently delete account'}
+          {busy ? 'Deleting...' : 'Permanently Delete Account'}
         </button>
       </div>
     </form>
   )
 }
 
-// ---------------- Main Settings Page ----------------
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>('dashboard')
+  const [tab, setTab] = useState<Tab>('appearance')
 
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
-          <path d="M2 4a2 2 0 012-2h3a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2V4zm11-2a2 2 0 00-2 2v10a2 2 0 002 2h3a2 2 0 002-2V4a2 2 0 00-2-2h-3zm-9 10a2 2 0 00-2 2v2a2 2 0 002 2h3a2 2 0 002-2v-2a2 2 0 00-2-2H4z" />
-        </svg>
-      )
-    },
-    {
-      id: 'profile',
-      label: 'Profile',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
-          <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
-        </svg>
-      ),
-    },
-    {
-      id: 'security',
-      label: 'Security',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
-          <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
-        </svg>
-      ),
-    },
-    {
-      id: 'danger',
-      label: 'Danger Zone',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4" aria-hidden="true">
-          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-        </svg>
-      ),
-    },
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'appearance', label: 'Appearance & Themes' },
+    { id: 'performance', label: 'Client Compression' },
+    { id: 'dashboard', label: 'Usage & Quotas' },
+    { id: 'shortcuts', label: 'Shortcuts' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'security', label: 'Security' },
+    { id: 'danger', label: 'Danger Zone' },
   ]
 
   return (
-    <main className="flex-1 py-10 px-4">
-      <div className="max-w-2xl mx-auto flex flex-col gap-8">
+    <main className="flex-1 py-8 px-4 sm:px-6">
+      <div className="max-w-3xl mx-auto flex flex-col gap-6">
         <div>
-          <h1 className="text-3xl font-display font-bold text-primary tracking-tight">
-            Account Settings
+          <h1 className="text-2xl sm:text-3xl font-display font-extrabold text-primary tracking-tight">
+            Settings & Preferences
           </h1>
-          <p className="text-secondary text-sm mt-1.5">
-            Manage your profile, password and account preferences.
+          <p className="text-secondary text-xs sm:text-sm mt-1">
+            Configure theme aesthetics, AI defaults, client compression, and account settings.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
-          <div className="flex border-b border-border overflow-x-auto custom-scrollbar">
-            {tabs.map(t => (
+        <div className="rounded-2xl border border-border bg-surface shadow-md overflow-hidden glass-modal">
+          <div className="flex border-b border-border overflow-x-auto p-1.5 gap-1 bg-surface-raised">
+            {tabs.map((t) => (
               <button
                 key={t.id}
-                id={`settings-tab-${t.id}`}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors
-                  border-b-2 focus:outline-none whitespace-nowrap
-                  ${tab === t.id
-                    ? 'border-magenta text-magenta'
-                    : 'border-transparent text-secondary hover:text-primary hover:border-border-strong'
-                  }
-                  ${t.id === 'danger' && tab !== 'danger' ? 'hover:text-danger hover:border-danger/30' : ''}
-                  ${t.id === 'danger' && tab === 'danger'  ? 'border-danger text-danger' : ''}
-                `}
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                  tab === t.id
+                    ? 'bg-surface text-magenta shadow-xs border border-border'
+                    : 'text-secondary hover:text-primary hover:bg-surface/50'
+                } ${t.id === 'danger' && tab === 'danger' ? 'text-danger border-danger/30' : ''}`}
               >
-                {t.icon}
                 {t.label}
               </button>
             ))}
           </div>
 
           <div className="p-6 sm:p-8">
+            {tab === 'appearance' && <AppearanceTab />}
+            {tab === 'performance' && <PerformanceTab />}
             {tab === 'dashboard' && <DashboardTab />}
-            {tab === 'profile'   && <ProfileTab />}
-            {tab === 'security'  && <SecurityTab />}
-            {tab === 'danger'    && <DangerTab />}
+            {tab === 'shortcuts' && <ShortcutsTab />}
+            {tab === 'profile' && <ProfileTab />}
+            {tab === 'security' && <SecurityTab />}
+            {tab === 'danger' && <DangerTab />}
           </div>
         </div>
       </div>

@@ -30,6 +30,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/__tests__/**/*.{test,spec}.{ts,tsx}'],
     css: false,
+    pool: 'threads',
   },
 })
 

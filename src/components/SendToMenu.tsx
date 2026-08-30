@@ -30,6 +30,7 @@ const ALL_TOOLS: ToolEntry[] = [
   { route: '/recolor',    label: 'Recolor',      icon: '🎨',  color: 'text-violet'  },
   { route: '/shadow',     label: 'Shadow & Glow',icon: '💡',  color: 'text-amber'   },
   { route: '/smart-crop', label: 'Smart Crop',   icon: '🔲',  color: 'text-teal'    },
+  { route: '/ai-analysis',label: 'AI Tools',     icon: '🤖',  color: 'text-violet'  },
 ]
 
 // ── Component ─────────────────────────────────────────────────────────────────
