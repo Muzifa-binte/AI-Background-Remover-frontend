@@ -10,7 +10,9 @@ interface DownloadSvgButtonProps {
 /**
  * DownloadSvgButton
  * Calls the /api/vectorize endpoint with the source image,
- * then triggers an automatic browser download of the returned SVG.
+ * then fetches the SVG content as a Blob and triggers a local
+ * object-URL download so the file is correctly named .svg
+ * (avoids cross-origin `a.download` attribute limitations).
  */
 export default function DownloadSvgButton({
   sourceUrl,
@@ -24,13 +26,13 @@ export default function DownloadSvgButton({
     setError(null)
 
     try {
-      // Fetch the source image as a Blob so we can upload it
+      // 1. Fetch the source image as a Blob to upload it
       const imgResponse = await fetch(sourceUrl)
       if (!imgResponse.ok) throw new Error('Could not fetch the source image.')
-      const blob = await imgResponse.blob()
+      const imgBlob = await imgResponse.blob()
 
       const baseName = filename.replace(/\.[^/.]+$/, '') || 'result'
-      const file = new File([blob], `${baseName}.png`, { type: 'image/png' })
+      const file = new File([imgBlob], `${baseName}.png`, { type: 'image/png' })
 
       const formData = new FormData()
       formData.append('file', file)
@@ -39,6 +41,7 @@ export default function DownloadSvgButton({
       const headers: Record<string, string> = {}
       if (token) headers['Authorization'] = 'Bearer ' + token
 
+      // 2. Call the vectorize endpoint
       const res = await fetch('http://localhost:8000/api/vectorize', {
         method: 'POST',
         headers,
@@ -53,13 +56,22 @@ export default function DownloadSvgButton({
       const data = await res.json()
       const svgUrl = 'http://localhost:8000' + data.download_url
 
-      // Trigger browser download
+      // 3. Fetch the SVG content as a Blob (fixes cross-origin download naming)
+      const svgResponse = await fetch(svgUrl, { headers })
+      if (!svgResponse.ok) throw new Error('Could not download the SVG file.')
+      const svgBlob = await svgResponse.blob()
+
+      // 4. Create a local object URL and trigger download with correct .svg name
+      const objectUrl = URL.createObjectURL(
+        new Blob([svgBlob], { type: 'image/svg+xml' })
+      )
       const a = document.createElement('a')
-      a.href = svgUrl
+      a.href = objectUrl
       a.download = `${baseName}.svg`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
+      URL.revokeObjectURL(objectUrl)
 
     } catch (err: any) {
       setError(err.message || 'An error occurred.')
@@ -104,7 +116,6 @@ export default function DownloadSvgButton({
           </>
         ) : (
           <>
-            {/* SVG icon */}
             <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v.75A2.25 2.25 0 005.25 19.5h9.5A2.25 2.25 0 0017 17.25v-.75M10 3v10m0 0L7 10m3 3l3-3" />
             </svg>
