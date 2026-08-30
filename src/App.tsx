@@ -23,14 +23,13 @@ const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
 const EnhancePage = lazy(() => import('./pages/EnhancePage'))
 const ReplaceBgPage = lazy(() => import('./pages/ReplaceBgPage'))
-const RecolorPage = lazy(() => import('./pages/RecolorPage'))
+const RecolorAndEraserPage = lazy(() => import('./pages/RecolorAndEraserPage'))
 const SmartCropPage = lazy(() => import('./pages/SmartCropPage'))
 const BatchPage = lazy(() => import('./pages/BatchPage'))
 const ShadowPage = lazy(() => import('./pages/ShadowPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const AIAnalysisPage = lazy(() => import('./pages/AIAnalysisPage'))
-const MagicEraserPage = lazy(() => import('./pages/MagicEraserPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 // ── ChatbotWidget ──────────────────────────────────────────────────────────
@@ -67,10 +66,9 @@ function MainLayout() {
               <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
               <Route path="/enhance" element={<ProtectedRoute><EnhancePage /></ProtectedRoute>} />
               <Route path="/replace-bg" element={<ProtectedRoute><ReplaceBgPage /></ProtectedRoute>} />
-              <Route path="/recolor" element={<ProtectedRoute><RecolorPage /></ProtectedRoute>} />
+              <Route path="/recolor-and-eraser" element={<ProtectedRoute><RecolorAndEraserPage /></ProtectedRoute>} />
               <Route path="/smart-crop" element={<ProtectedRoute><SmartCropPage /></ProtectedRoute>} />
               <Route path="/batch" element={<ProtectedRoute><BatchPage /></ProtectedRoute>} />
-              <Route path="/magic-eraser" element={<ProtectedRoute><MagicEraserPage /></ProtectedRoute>} />
               <Route path="/shadow" element={<ProtectedRoute><ShadowPage /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />

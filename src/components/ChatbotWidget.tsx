@@ -9,7 +9,7 @@ import { useToast } from '../hooks/useToast'
 
 // ─── Mode Types ───────────────────────────────────────────────────────────────
 
-type Mode = 'chat' | 'analysis' | 'suggestions' | 'captions'
+type Mode = 'chat' | 'analysis' | 'suggestions' | 'captions' | 'ai-tools'
 
 interface ChatbotWidgetProps {
   position?: 'bottom-right' | 'bottom-left'
@@ -574,6 +574,21 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const navigate = useNavigate()
   const { showToast } = useToast()
 
+  // Handle custom event to open chatbot in specific mode
+  useEffect(() => {
+    const handleOpenChatbot = (e: CustomEvent) => {
+      if (e.detail?.mode) {
+        setMode(e.detail.mode as Mode)
+      }
+      setIsOpen(true)
+    }
+    
+    window.addEventListener('open-chatbot', handleOpenChatbot as EventListener)
+    return () => {
+      window.removeEventListener('open-chatbot', handleOpenChatbot as EventListener)
+    }
+  }, [])
+
   // Context active image context
   const { activeFile: contextFile, activePreviewUrl: contextPreviewUrl, setActiveImage } = useActiveImage()
 
@@ -903,6 +918,10 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
     {
       id: 'captions', label: 'Caption', color: 'violet',
       icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+    },
+    {
+      id: 'ai-tools', label: 'Batch Analysis', color: 'magenta',
+      icon: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
     },
   ]
 
@@ -1322,6 +1341,37 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
                 <p className="text-[11px] text-muted text-center">{activeFile ? 'Pick a style and generate captions.' : 'Upload an image to get started.'}</p>
               </div>
             )}
+          </div>
+        </div>
+      )
+    }
+
+    // ── AI TOOLS ──
+    if (mode === 'ai-tools') {
+      return (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-magenta/10 border border-magenta/20 flex items-center justify-center text-magenta mb-4 shadow-inner">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-bold text-primary mb-2">Batch Analysis</h3>
+            <p className="text-[11px] text-secondary mb-6 leading-relaxed max-w-xs">
+              Access advanced AI analysis tools for your images including visual analysis, background suggestions, and more.
+            </p>
+            <button 
+              onClick={() => { 
+                navigate('/ai-analysis')
+                setIsOpen(false)
+              }}
+              className="px-4 py-2.5 rounded-xl bg-magenta hover:bg-magenta/90 text-xs font-bold text-white transition-all active:scale-95 flex items-center gap-2 shadow-md"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Open Batch Analysis
+            </button>
           </div>
         </div>
       )
