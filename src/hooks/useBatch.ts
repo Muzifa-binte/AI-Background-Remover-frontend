@@ -223,7 +223,6 @@ export function useBatch() {
       const res = await axios.post<StartResult>(
         '/api/batch/start',
         formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } },
       )
       jobIdRef.current = res.data.job_id
       setJobStatus('pending')

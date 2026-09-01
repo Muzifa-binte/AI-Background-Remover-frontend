@@ -8,11 +8,10 @@ export const chatService = {
     if (file) {
       formData.append('file', file)
     }
-    const { data } = await apiClient.post<ChatResponse>('/api/chat', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    })
+    // Do NOT set Content-Type manually — axios auto-sets multipart/form-data
+    // with the correct boundary when it detects a FormData body.
+    // Manually setting it drops the boundary and causes FastAPI to reject the request.
+    const { data } = await apiClient.post<ChatResponse>('/api/chat', formData)
     return data
   },
 }

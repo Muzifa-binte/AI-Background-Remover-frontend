@@ -134,11 +134,16 @@ function UserMenu() {
   }
 
   const ACCENTS: { id: AccentTheme; label: string; color: string }[] = [
-    { id: 'gold', label: 'Gold', color: '#F59E0B' },
-    { id: 'cyber', label: 'Cyber', color: '#EC4899' },
-    { id: 'emerald', label: 'Emerald', color: '#10B981' },
-    { id: 'sapphire', label: 'Sapphire', color: '#3B82F6' },
-    { id: 'sunset', label: 'Sunset', color: '#F97316' },
+    { id: 'gold',    label: 'Gold',         color: '#F59E0B' },
+    { id: 'cyber',   label: 'Cyber',        color: '#EC4899' },
+    { id: 'emerald', label: 'Emerald',      color: '#10B981' },
+    { id: 'sapphire',label: 'Sapphire',     color: '#3B82F6' },
+    { id: 'sunset',  label: 'Sunset',       color: '#F97316' },
+    { id: 'rose',    label: 'Rose Quartz',  color: '#FB7185' },
+    { id: 'arctic',  label: 'Arctic Ice',   color: '#22D3EE' },
+    { id: 'crimson', label: 'Crimson',      color: '#EF4444' },
+    { id: 'violet',  label: 'Violet Dream', color: '#A855F7' },
+    { id: 'lime',    label: 'Lime',         color: '#84CC16' },
   ]
 
   return (
@@ -184,13 +189,13 @@ function UserMenu() {
               <span className="text-[11px] font-semibold text-secondary uppercase tracking-wider">Accent Theme</span>
               <span className="text-[11px] font-mono text-muted capitalize">{accent}</span>
             </div>
-            <div className="flex items-center justify-between gap-1">
+            <div className="flex items-center flex-wrap gap-1.5">
               {ACCENTS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setAccent(item.id)}
-                  className={`w-6 h-6 rounded-full border transition-all ${
+                  className={`w-5 h-5 rounded-full border transition-all ${
                     accent === item.id ? 'scale-125 ring-2 ring-magenta/50 border-white' : 'border-border hover:scale-110'
                   }`}
                   style={{ backgroundColor: item.color }}
