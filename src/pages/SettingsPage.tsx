@@ -7,8 +7,9 @@ import { SHORTCUT_LIST } from '../hooks/useKeyboardShortcuts'
 import CustomSlider from '../components/CustomSlider'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { useAnalytics } from '../hooks/useAnalytics'
 
-type Tab = 'dashboard' | 'brandkit' | 'appearance' | 'performance' | 'shortcuts' | 'profile' | 'security' | 'danger'
+type Tab = 'dashboard' | 'brandkit' | 'appearance' | 'performance' | 'shortcuts' | 'profile' | 'security' | 'danger' | 'analytics'
 
 function EyeIcon({ visible }: { visible: boolean }) {
   return visible ? (
@@ -682,6 +683,141 @@ function BrandKitTab() {
   );
 }
 
+// ---------------- Analytics Tab ----------------
+function AnalyticsTab() {
+  const { usage, success, cost, feedback, loading, error } = useAnalytics(30)
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-10">
+        <Spinner />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div role="alert" className="rounded-lg border border-danger/40 bg-surface px-4 py-3 text-sm text-danger animate-fade-up">
+        {error}
+      </div>
+    )
+  }
+
+  const maxUsage = Math.max(1, ...(usage?.by_feature.map(f => f.count) ?? [0]))
+  const avgFeedback =
+    feedback && feedback.by_action_type.length > 0
+      ? (
+          feedback.by_action_type.reduce((sum, r) => sum + r.avg_rating * r.count, 0) /
+          feedback.by_action_type.reduce((sum, r) => sum + r.count, 0)
+        ).toFixed(1)
+      : '—'
+
+  return (
+    <div className="flex flex-col gap-6 animate-fade-up">
+      <div>
+        <h3 className="text-base font-bold text-primary">Analytics &amp; Insights</h3>
+        <p className="text-xs text-secondary mt-0.5">Last 30 days of AI usage, costs, and feedback.</p>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total AI actions', value: String(usage?.total_events ?? 0) },
+          { label: 'Suggestion apply rate', value: `${Math.round((success?.overall_apply_rate ?? 0) * 100)}%` },
+          { label: 'Estimated AI cost', value: `$${(cost?.total_cost_usd ?? 0).toFixed(4)}`, sub: `${(cost?.total_input_tokens ?? 0) + (cost?.total_output_tokens ?? 0)} tokens` },
+          { label: 'Avg. feedback rating', value: `${avgFeedback} / 5` },
+        ].map(card => (
+          <div key={card.label} className="rounded-xl border border-border bg-surface-raised p-4 flex flex-col gap-1">
+            <p className="text-[10px] text-muted font-medium uppercase tracking-wider">{card.label}</p>
+            <p className="text-xl font-display font-bold text-primary">{card.value}</p>
+            {card.sub && <p className="text-[10px] text-secondary">{card.sub}</p>}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Usage by feature */}
+        <div className="rounded-xl border border-border bg-surface-raised p-4">
+          <h4 className="text-sm font-semibold text-primary mb-3">Most used AI features</h4>
+          {usage && usage.by_feature.length > 0 ? (
+            <div className="space-y-3">
+              {usage.by_feature.map(f => {
+                const pct = maxUsage > 0 ? Math.round((f.count / maxUsage) * 100) : 0
+                return (
+                  <div key={f.feature} className="flex items-center gap-3">
+                    <span className="text-xs text-secondary w-28 shrink-0 truncate">{f.feature}</span>
+                    <div className="flex-1 h-2 rounded-full bg-page overflow-hidden">
+                      <div className="h-full bg-teal rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-xs font-medium text-primary w-8 text-right shrink-0">{f.count}</span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-muted text-xs">No usage data yet.</p>
+          )}
+        </div>
+
+        {/* Success metrics */}
+        <div className="rounded-xl border border-border bg-surface-raised p-4">
+          <h4 className="text-sm font-semibold text-primary mb-3">Suggestion apply rate by feature</h4>
+          {success && success.by_action_type.length > 0 ? (
+            <ul className="space-y-2.5">
+              {success.by_action_type.map(row => (
+                <li key={row.action_type} className="flex items-center justify-between text-xs">
+                  <span className="text-secondary">{row.action_type}</span>
+                  <span className="text-primary font-medium">
+                    {row.applied_count}/{row.suggested_count} ({Math.round(row.apply_rate * 100)}%)
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted text-xs">No action history yet.</p>
+          )}
+        </div>
+
+        {/* Cost by feature */}
+        <div className="rounded-xl border border-border bg-surface-raised p-4">
+          <h4 className="text-sm font-semibold text-primary mb-3">Cost by feature</h4>
+          {cost && Object.keys(cost.by_feature).length > 0 ? (
+            <ul className="space-y-2.5">
+              {Object.entries(cost.by_feature).map(([feature, amount]) => (
+                <li key={feature} className="flex items-center justify-between text-xs">
+                  <span className="text-secondary">{feature}</span>
+                  <span className="text-primary font-medium">${(amount as number).toFixed(4)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted text-xs">No cost data yet.</p>
+          )}
+        </div>
+
+        {/* Feedback ratings */}
+        <div className="rounded-xl border border-border bg-surface-raised p-4">
+          <h4 className="text-sm font-semibold text-primary mb-3">Quality feedback by feature</h4>
+          {feedback && feedback.by_action_type.length > 0 ? (
+            <ul className="space-y-2.5">
+              {feedback.by_action_type.map(row => (
+                <li key={row.action_type} className="flex items-center justify-between text-xs">
+                  <span className="text-secondary">{row.action_type}</span>
+                  <span className="text-primary font-medium">
+                    {row.avg_rating.toFixed(1)} / 5 ({row.count} rating{row.count !== 1 ? 's' : ''})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted text-xs">No feedback submitted yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
 
   const [tab, setTab] = useState<Tab>('appearance')
@@ -690,7 +826,8 @@ export default function SettingsPage() {
     { id: 'appearance', label: 'Appearance & Themes' },
     { id: 'performance', label: 'Client Compression' },
     { id: 'dashboard', label: 'Usage & Quotas' },
-      { id: 'brandkit', label: 'Brand Kit' },
+    { id: 'analytics', label: 'Analytics' },
+    { id: 'brandkit', label: 'Brand Kit' },
     { id: 'shortcuts', label: 'Shortcuts' },
     { id: 'profile', label: 'Profile' },
     { id: 'security', label: 'Security' },
@@ -730,6 +867,7 @@ export default function SettingsPage() {
             {tab === 'appearance' && <AppearanceTab />}
             {tab === 'performance' && <PerformanceTab />}
             {tab === 'dashboard' && <DashboardTab />}
+            {tab === 'analytics' && <AnalyticsTab />}
             {tab === 'brandkit' && <BrandKitTab />}
             {tab === 'shortcuts' && <ShortcutsTab />}
             {tab === 'profile' && <ProfileTab />}

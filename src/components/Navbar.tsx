@@ -36,14 +36,6 @@ const NAV_ITEMS = [
     to: '/history', label: 'History', end: false,
     icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">🕐</span>),
   },
-  {
-    to: '/prompts', label: 'Prompts', end: false,
-    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">📝</span>),
-  },
-  {
-    to: '/analytics', label: 'Analytics', end: false,
-    icon: (<span className="w-3.5 h-3.5 shrink-0 text-base leading-none">📊</span>),
-  },
 ]
 
 function AppNavLink({ to, label, end, icon }: { to: string; label: string; end?: boolean; icon: React.ReactNode }) {
