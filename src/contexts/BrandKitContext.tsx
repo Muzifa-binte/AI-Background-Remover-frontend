@@ -48,8 +48,8 @@ export function BrandKitProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         return { ...defaultBrandKit, ...JSON.parse(saved) };
-      } catch (e) {
-        console.error('Failed to parse brandKit from localStorage', e);
+      } catch (_e) {
+        // localStorage value is corrupt — fall back to defaults
       }
     }
     return defaultBrandKit;

@@ -188,9 +188,8 @@ export default function ExportModal({ downloadUrl, filename, isOpen, onClose }: 
       document.body.removeChild(a);
       
       onClose();
-    } catch (err) {
-      console.error('Failed to apply watermark', err);
-      // Fallback
+    } catch (_err) {
+      // Watermark canvas failed — fall back to direct download
       window.location.href = url;
       onClose();
     }

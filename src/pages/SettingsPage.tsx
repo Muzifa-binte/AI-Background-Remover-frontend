@@ -75,14 +75,15 @@ function DashboardTab() {
   const { user } = useAuth()
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [statsError, setStatsError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchStats() {
       try {
         const res = await axios.get('/api/auth/stats')
         setStats(res.data)
-      } catch (err) {
-        console.error("Failed to load stats", err)
+      } catch (_err) {
+        setStatsError('Failed to load usage stats. Please refresh to try again.')
       } finally {
         setLoading(false)
       }
@@ -94,6 +95,14 @@ function DashboardTab() {
     return (
       <div className="flex justify-center py-10">
         <Spinner />
+      </div>
+    )
+  }
+
+  if (statsError) {
+    return (
+      <div role="alert" className="rounded-lg border border-danger/40 bg-surface px-4 py-3 text-sm text-danger animate-fade-up">
+        {statsError}
       </div>
     )
   }

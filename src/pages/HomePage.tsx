@@ -158,13 +158,14 @@ export default function HomePage() {
     }
   }
 
-  // Auto-trigger when redirected with active image
+  // Auto-trigger when redirected with active image — runs once on mount only
+  const didAutoUploadRef = useRef(false)
   useEffect(() => {
-    if (activeFile && status === 'idle') {
+    if (!didAutoUploadRef.current && activeFile && status === 'idle') {
+      didAutoUploadRef.current = true
       upload(activeFile)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [activeFile, status, upload])
 
   // Auto add to workspace project when upload completes
   useEffect(() => {
@@ -177,8 +178,7 @@ export default function HomePage() {
         operationType: 'remove_bg',
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, result])
+  }, [status, result, addItemToProject, originalUrl])
 
   // Processing step timer
   const steps = quality === 'quality' ? QUALITY_STEPS : quality === 'standard' ? STANDARD_STEPS : FAST_STEPS

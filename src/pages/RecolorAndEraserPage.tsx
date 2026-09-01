@@ -302,7 +302,6 @@ export default function RecolorAndEraserPage() {
       setOutput(fullResultUrl, 'magic_eraser_result.png')
       
     } catch (err: any) {
-      console.error(err)
       setEraserError(err.message || 'An error occurred during inpainting.')
       const img = eraserOriginalImgRef.current
       const canvas = eraserCanvasRef.current

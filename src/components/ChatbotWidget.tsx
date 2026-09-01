@@ -1447,7 +1447,7 @@ export const getBackgroundPreviewUrls = (suggestion: string) => {
     }
   }
 
-  const cleanPrompt = suggestion.replace(/^\d+[\.\-\)]\s*/, '').replace(/["']/g, '').toLowerCase().trim()
+  const cleanPrompt = suggestion.replace(/^\d+[.\-)]\s*/, '').replace(/["']/g, '').toLowerCase().trim()
 
   let matchedPhotoId: string | null = null
   for (const item of BACKDROP_PHOTO_MAP) {
