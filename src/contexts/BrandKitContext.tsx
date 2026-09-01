@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export type ExportFormat = 'png' | 'jpeg' | 'webp';
 export type WatermarkType = 'text' | 'image';
@@ -33,7 +33,7 @@ const defaultBrandKit: BrandKitState = {
   watermark: {
     enabled: false,
     type: 'text',
-    text: '© MyBrand',
+    text: 'ï¿½ MyBrand',
     image: '',
     opacity: 0.8,
     position: 'bottom-right',

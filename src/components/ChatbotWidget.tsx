@@ -547,13 +547,23 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   const [selectedCaption, setSelectedCaption] = useState<number | null>(null)
   const [copiedCaption, setCopiedCaption] = useState<number | null>(null)
 
+  const fetchTemplates = useCallback(async () => {
+    if (templatesLoading) return
+    setTemplatesLoading(true)
+    try {
+      const data = await promptService.list()
+      setTemplates(data)
+    } catch { /* ignore */ }
+    finally { setTemplatesLoading(false) }
+  }, [templatesLoading])
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, chatLoading])
 
   useEffect(() => {
     if (isOpen && mode === 'chat') setTimeout(() => chatInputRef.current?.focus(), 150)
     if (isOpen && mode === 'prompts' && templates.length === 0) fetchTemplates()
     if (isOpen) setUnread(0)
-  }, [isOpen, mode])
+  }, [isOpen, mode, templates.length, fetchTemplates])
 
   useEffect(() => {
     if (contextFile) { setInternalFile(null); setInternalPreviewUrl(null) }
@@ -679,16 +689,6 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
   }
 
   const handleResendMessage = (content: string) => sendChat(content)
-
-  const fetchTemplates = async () => {
-    if (templatesLoading) return
-    setTemplatesLoading(true)
-    try {
-      const data = await promptService.list()
-      setTemplates(data)
-    } catch { /* ignore */ }
-    finally { setTemplatesLoading(false) }
-  }
 
   const toggleTemplates = () => {
     const next = !showTemplates
