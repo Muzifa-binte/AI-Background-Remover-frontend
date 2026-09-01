@@ -17,6 +17,7 @@ import CanvasErrorBoundary from '../components/CanvasErrorBoundary'
 import SendToMenu from '../components/SendToMenu'
 import { useRecolor, COLOR_PRESETS } from '../hooks/useRecolor'
 import { useActiveImage } from '../contexts/ActiveImageContext'
+import { useBrandKit } from '../contexts/BrandKitContext'
 
 // ── Small sub-components ───────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ const FEATURE_CHIPS = [
 ]
 
 export default function RecolorPage() {
+  const { brandKit } = useBrandKit();
   const canvasRef = useRef<RecolorCanvasHandle>(null)
 
   const {
@@ -340,6 +342,22 @@ export default function RecolorPage() {
 
             {/* Preset swatches */}
             <div className="flex flex-wrap gap-2" role="group" aria-label="Colour presets">
+              {brandKit.colors.map(hex => (
+                <button
+                  key={`brand-${hex}`}
+                  onClick={() => updateBrush('color', hex)}
+                  className={`
+                    w-7 h-7 rounded-full shadow-sm border transition-transform
+                    focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-magenta
+                    hover:scale-110 active:scale-95
+                    ${brush.color === hex ? 'ring-2 ring-offset-2 ring-magenta scale-110 border-transparent' : 'border-border'}
+                  `}
+                  style={{ backgroundColor: hex }}
+                  aria-label={`Select brand color ${hex}`}
+                  title="Brand Color"
+                />
+              ))}
+              <div className="w-[1px] h-7 bg-border mx-1" />
               {COLOR_PRESETS.map(hex => (
                 <button
                   key={hex}

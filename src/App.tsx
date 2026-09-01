@@ -6,6 +6,7 @@ import { ActiveImageProvider } from './contexts/ActiveImageContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { ThemeSettingsProvider } from './contexts/ThemeSettingsContext'
 import { WorkspaceProvider } from './contexts/WorkspaceContext'
+import { BrandKitProvider } from './contexts/BrandKitContext'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 // ── Eagerly loaded components ───────────────────────────────────────────────
@@ -98,11 +99,13 @@ export default function App() {
       <AuthProvider>
         <ThemeSettingsProvider>
           <WorkspaceProvider>
-            <ToastProvider>
+            <BrandKitProvider>
+              <ToastProvider>
               <ActiveImageProvider>
                 <MainLayout />
               </ActiveImageProvider>
             </ToastProvider>
+            </BrandKitProvider>
           </WorkspaceProvider>
         </ThemeSettingsProvider>
       </AuthProvider>
