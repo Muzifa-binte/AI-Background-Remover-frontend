@@ -217,7 +217,7 @@ export default function WorkspaceSidebar() {
           <span className="text-[10px] font-mono text-primary capitalize">{accent}</span>
         </div>
         <div className="flex items-center justify-between gap-1">
-          {(['gold', 'cyber', 'emerald', 'sapphire', 'sunset', 'rose', 'arctic', 'crimson', 'violet', 'lime'] as const).map((th) => (
+          {(['gold', 'cyber', 'emerald', 'sapphire', 'sunset', 'rose', 'arctic', 'crimson', 'violet'] as const).map((th) => (
             <button
               key={th}
               type="button"
@@ -235,7 +235,6 @@ export default function WorkspaceSidebar() {
                   : th === 'arctic' ? '#22D3EE'
                   : th === 'crimson'? '#EF4444'
                   : th === 'violet' ? '#A855F7'
-                  : th === 'lime'   ? '#84CC16'
                   : '#F97316',
               }}
               title={th}

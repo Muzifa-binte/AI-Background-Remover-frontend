@@ -271,20 +271,6 @@
   --gradient-brand:       linear-gradient(135deg, #A855F7 0%, #7C3AED 100%);
 }
 
-/* --- Lime Theme (Neon Lime / Yellow-Green) --- */
-[data-accent='lime'] {
-  --accent-primary:       #84CC16;
-  --accent-primary-hover: #A3E635;
-  --accent-primary-glow:  rgba(132, 204, 22, 0.30);
-  --accent-secondary:       #65A30D;
-  --accent-secondary-hover: #84CC16;
-  --accent-magenta:       #84CC16;
-  --accent-magenta-hover: #A3E635;
-  --accent-teal:          #65A30D;
-  --accent-teal-hover:    #84CC16;
-  --gradient-brand:       linear-gradient(135deg, #84CC16 0%, #22C55E 100%);
-}
-
 /* ============================================================
    Checkerboard background utility
    ============================================================ */

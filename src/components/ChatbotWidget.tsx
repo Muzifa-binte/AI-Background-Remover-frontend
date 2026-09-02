@@ -942,7 +942,7 @@ const ChatbotWidget: React.FC<ChatbotWidgetProps> = ({
                 onKeyDown={handleChatKey}
                 disabled={chatLoading} rows={1} placeholder="Ask something..."
                 maxLength={MAX_CHARS}
-                className="flex-1 bg-surface border border-border rounded-xl px-3 py-2 text-[12.5px] text-primary placeholder-muted outline-none resize-none focus:border-magenta focus:ring-1 focus:ring-magenta/30 transition-all scrollbar-none"
+                className="flex-1 bg-surface border border-border border-r-0 rounded-xl px-3 py-2 text-[12.5px] text-primary placeholder-muted outline-none resize-none focus:border-magenta focus:ring-1 focus:ring-magenta/30 transition-all scrollbar-none"
                 style={{ height: '36px', maxHeight: '140px' }}
                 onInput={e => { const t = e.target as HTMLTextAreaElement; t.style.height = '36px'; t.style.height = Math.min(t.scrollHeight, 140) + 'px' }} />
               <button onClick={() => sendChat()} disabled={chatLoading || !chatInput.trim()}

@@ -193,14 +193,13 @@ function AppearanceTab() {
   const THEMES: { id: AccentTheme; name: string; desc: string; color: string }[] = [
     { id: 'gold',    name: 'Amber Gold (Darkroom Luxury)',      desc: 'Warm amber tones on ultra-deep black surfaces',       color: '#F59E0B' },
     { id: 'cyber',   name: 'Cyber Neon (Magenta / Violet)',     desc: 'Electric magenta & violet glow aesthetic',            color: '#EC4899' },
-    { id: 'emerald', name: 'Emerald Mint (Cyan / Green)',       desc: 'Crisp green & teal high-contrast matrix',             color: '#10B981' },
     { id: 'sapphire',name: 'Sapphire Electric (Blue / Indigo)', desc: 'Modern technical electric blue interface',            color: '#3B82F6' },
     { id: 'sunset',  name: 'Sunset Coral (Orange / Rose)',      desc: 'Warm coral gradient with high punch vibrancy',        color: '#F97316' },
     { id: 'rose',    name: 'Rose Quartz (Pink / Blush)',        desc: 'Soft romantic pink tones, elegant and warm',          color: '#FB7185' },
     { id: 'arctic',  name: 'Arctic Ice (Cyan / Sky)',           desc: 'Crystal clear icy cyan — clean and futuristic',       color: '#22D3EE' },
+    { id: 'emerald', name: 'Emerald Mint (Cyan / Green)',       desc: 'Crisp green & teal high-contrast matrix',             color: '#10B981' },
     { id: 'crimson', name: 'Crimson (Deep Red / Ruby)',         desc: 'Bold deep red — powerful and high-contrast',          color: '#EF4444' },
     { id: 'violet',  name: 'Violet Dream (Purple / Lilac)',     desc: 'Rich purple hues — creative and luxurious',           color: '#A855F7' },
-    { id: 'lime',    name: 'Lime (Neon Green / Yellow-Green)',  desc: 'High-energy neon lime — vibrant and electric',        color: '#84CC16' },
   ]
 
   return (

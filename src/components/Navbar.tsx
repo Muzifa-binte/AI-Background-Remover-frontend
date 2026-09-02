@@ -136,14 +136,13 @@ function UserMenu() {
   const ACCENTS: { id: AccentTheme; label: string; color: string }[] = [
     { id: 'gold',    label: 'Gold',         color: '#F59E0B' },
     { id: 'cyber',   label: 'Cyber',        color: '#EC4899' },
-    { id: 'emerald', label: 'Emerald',      color: '#10B981' },
     { id: 'sapphire',label: 'Sapphire',     color: '#3B82F6' },
     { id: 'sunset',  label: 'Sunset',       color: '#F97316' },
     { id: 'rose',    label: 'Rose Quartz',  color: '#FB7185' },
     { id: 'arctic',  label: 'Arctic Ice',   color: '#22D3EE' },
+    { id: 'emerald', label: 'Emerald',      color: '#10B981' },
     { id: 'crimson', label: 'Crimson',      color: '#EF4444' },
     { id: 'violet',  label: 'Violet Dream', color: '#A855F7' },
-    { id: 'lime',    label: 'Lime',         color: '#84CC16' },
   ]
 
   return (
